@@ -1,0 +1,52 @@
+#!/usr/bin/perl
+
+use 5.014;
+use warnings;
+use autodie;
+
+use FindBin;
+use lib "$FindBin::Bin/../share/perl";
+
+use ACNE::Common;
+use ACNE::Crypto;
+use ACNE::Cert;
+
+use Getopt::Long;
+use File::Spec::Functions;
+use Data::Dumper;
+
+my $id = shift;
+my ($arg_group, @arg_domains, $arg_ca, $arg_key, $arg_roll_key);
+GetOptions(
+ 'for=s'    => \$arg_group,    # Group to use for install hooks and the like
+ 'domain=s' => \@arg_domains , # Domains to put in cert
+ 'key=s'    => \$arg_key,
+ 'roll-key' => \$arg_roll_key, # Roll key on renewals
+ 'ca=s'     => \$arg_ca        # CA config to use
+) or die "try acne help\n";
+
+die "--for <name> is required\n" if !$arg_group;
+
+
+umask 0077;
+chdir catdir(@ACNE::Common::libdir);
+
+ACNE::Crypto::init;
+
+my $cert = ACNE::Cert->new($id, $arg_group, {
+  dns      => \@arg_domains,
+  key      => $arg_key,
+  roll_key => $arg_roll_key,
+  ca       => $arg_ca
+});
+
+my $conf = $cert->fullconfig;
+my $use_ca = $conf->{ca};
+
+say sprintf("Using CA %s, key %s, roll-key %s (on renewals)",
+  $use_ca,
+  $conf->{'key'},
+  $conf->{'roll-key'}
+);
+
+say Dumper($cert);

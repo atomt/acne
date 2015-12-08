@@ -1,0 +1,12 @@
+#!/usr/bin/perl
+
+use 5.014;
+use warnings;
+
+say 'acme new example.com -d example.com -d www.example.com --for nginx [--ca le]';
+say 'acme renew-auto --for nginx';
+say 'acme list [--for ..]';
+say 'acme remove example.com';
+say 'acme revoke example.com';
+
+exit 0;
