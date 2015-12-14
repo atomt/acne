@@ -32,4 +32,11 @@ sub readPairs {
 	$ret;
 }
 
+# XXX also utime
+sub touch {
+	my ($path) = @_;
+	open my $fh, '>>', $path;
+	1;
+}
+
 1;
