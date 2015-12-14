@@ -1,7 +1,8 @@
 package ACNE::Common;
 
 use 5.014;
-use warnings;
+use warnings FATAL => 'all';
+use autodie;
 
 use File::Spec::Functions;
 
