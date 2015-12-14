@@ -1,18 +1,20 @@
 #!/usr/bin/perl
 
 use 5.014;
-use warnings;
+use warnings FATAL => 'all';
 use autodie;
 
 use FindBin;
 use lib "$FindBin::Bin/../share/perl";
 
 use ACNE::Common;
-use ACNE::Crypto;
+use ACNE::Account;
 use ACNE::Cert;
+use ACNE::CA;
 
 use Getopt::Long;
 use File::Spec::Functions;
+use HTTP::Tiny;
 use Data::Dumper;
 
 my $id = shift;
@@ -27,11 +29,8 @@ GetOptions(
 
 die "--for <name> is required\n" if !$arg_group;
 
-
 umask 0077;
 chdir catdir(@ACNE::Common::libdir);
-
-ACNE::Crypto::init;
 
 my $cert = ACNE::Cert->new($id, $arg_group, {
   dns      => \@arg_domains,
@@ -40,13 +39,69 @@ my $cert = ACNE::Cert->new($id, $arg_group, {
   ca       => $arg_ca
 });
 
-my $conf = $cert->fullconfig;
-my $use_ca = $conf->{ca};
+my $ca_id      = $cert->getCAId;
+my $account_id = $cert->getAccountId;
 
-say sprintf("Using CA %s, key %s, roll-key %s (on renewals)",
-  $use_ca,
-  $conf->{'key'},
-  $conf->{'roll-key'}
+say sprintf("Using account %s, CA %s, key %s, roll-key %s (on renewals)",
+  $account_id,
+  $ca_id,
+  $cert->getKeyConf,
+  $cert->getRollKey
 );
 
-say Dumper($cert);
+my $account = ACNE::Account->new($account_id);
+my $ca = ACNE::CA->new($ca_id, $account->keyInit);
+$ca->nonceInit;
+
+# Register account
+$account->register($ca, $ca_id)
+  if !$account->registered($ca, $ca_id);
+
+
+# Authorize domains
+my $acme_dir = '/var/lib/acne/http'; # XXX config under group/for?
+my $http = HTTP::Tiny->new();
+
+for my $domain ( @arg_domains ) {
+	say "Authenticating domain $domain";
+
+	# This is somewhat naive and hackish for now. more or less lifted
+	# from acme-tiny.
+	say "Requesting challenges";
+	my @challenges = grep { $_->{'type'} eq 'http-01' } @{$ca->domainAuth($domain)};
+	my $challenge = $challenges[0];
+	my $token = $challenge->{'token'}; $token =~ s![^A-Za-z0-9_\-]!_!g;
+	my $thumbprint = $ca->jws->thumbprint;
+	my $keyauth = $token . '.' . $thumbprint;
+	my $wellknown_path = catdir($acme_dir, $token);
+
+	say "Publishing";
+	{
+		open my $fh, '>', $wellknown_path;
+		print $fh $keyauth;
+	}
+
+	# Perhaps have a challenge hook like the install.d/remove.d ones
+	# -> we could use dns challenges and such as well.
+
+	# Test HTTP fetching file from $domain/.well-known/acme-challenge/$token
+	# before bothering polling ACME.
+	say "HTTP sanity test";
+
+	# Notify ready
+	say "Notify ACME we are ready";
+
+	# Poll ACME
+	say "Waiting..";
+
+	say Dumper(\@challenges);
+}
+
+# Make CSR and request the cert(s)
+say "Requesting certificate";
+
+
+#say Dumper($jws);
+#say Dumper($cert);
+#say Dumper($account);
+#say Dumper($ca);
