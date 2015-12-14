@@ -10,9 +10,7 @@ use ACNE::Util::File;
 use ACNE::Crypto::RSA;
 
 use JSON;
-use IO::File;
 use File::Spec::Functions;
-
 
 sub _new {
 	my ($class, $id, $group, $conf) = @_;
@@ -53,17 +51,7 @@ sub new {
 sub load {
 	my ($class, $id, $group) = @_;
 	my $conf_fp = catfile(dbpath($group, $id), 'config.json');
-
-	my $conf;
-	{
-		local $/;
-		my $fh = IO::File->new($conf_fp, 'r')
-		  or die "$conf_fp, $!\n";
-		my $json_text = <$fh>;
-		$conf = decode_json($json_text);
-	}
-
-	_new(@_, $conf);
+	_new(@_, ACNE::Util::File::readJSON($conf_fp));
 }
 
 sub getId        { $_[0]->{'id'}; };
