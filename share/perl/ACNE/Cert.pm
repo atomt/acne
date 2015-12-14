@@ -9,6 +9,7 @@ use ACNE::Common;
 use ACNE::Util::File;
 use ACNE::Crypto::RSA;
 
+use HTTP::Tiny;
 use File::Spec::Functions;
 
 sub _new {
@@ -53,6 +54,7 @@ sub new {
 }
 
 # Load config from db and return new object
+# FIXME allow for setting new key, for and renew parameters
 sub load {
 	my ($class, $id) = @_;
 	my $conf_fp = catfile(@ACNE::Common::libdir, 'cert', $id, 'config.json');
@@ -72,6 +74,69 @@ sub save {
 	}
 
 	ACNE::Util::File::writeJSON($s->{'conf'}, $conf_fp);
+}
+
+sub issue {
+	my ($s, $ca) = @_;
+	my @dns = @{$s->{'conf'}->{'dns'}};
+
+	# Authorize domains
+	for my $domain ( @dns ) {
+		say "Authenticating domain $domain";
+		$s->domainAuth($ca, $domain)
+	}
+
+	# Make CSR and request the cert(s)
+
+	say "Requesting certificate";
+
+}
+
+sub domainAuth {
+	my ($s, $acme, $domain) = @_;
+
+	# Perhaps have a challenge hook like the install.d/remove.d ones
+	# -> we could use dns challenges and such as well.
+	my $acme_dir = '/srv/web/shared/acme'; # FIXME read from config
+
+	say "Requesting challenges";
+	my @challenges_all = $acme->domainAuth($domain);
+	my @challenges = grep { $_->{'type'} eq 'http-01' } @challenges_all;
+
+	if ( @challenges == 0 ) {
+		die "No supported challenges provided by CA\n";
+	}
+
+	my $challenge = $challenges[0];
+
+	# Make challenge file
+	my $token     = $challenge->{'token'}; $token =~ s![^A-Za-z0-9_\-]!_!g;
+	my $thumb     = $acme->jws->thumbprint;
+	my $keyauth   = $token . '.' . $thumb;
+	my $path      = catfile($acme_dir, $token);
+
+	say "Got challenge from CA, publishing";
+	open my $fh, '>', $path;
+	print $fh $keyauth;
+	undef $fh;
+	chmod 644, $path;
+
+	# Do a sanity test, see if we can fetch the challenge ourselfes
+	# before we request the CA to go get it.
+	my $url = 'http://' . $domain . '/.well-known/acme-challenge/' . $token;
+	say "Testing $url";
+	my $resp = HTTP::Tiny->new->get($url);
+
+	if ( $resp->{'content'} ne $keyauth ) {
+		die "Content of the token on the server did not match the one we put there..!\nGot $resp->{content}";
+	}
+
+	# Notify CA to go fetch
+	say "Notifying CA that we are ready";
+	$acme->challenge($challenge->{'uri'}, $keyauth);
+	say "Domain $domain verified!";
+
+	1;
 }
 
 sub getId        { $_[0]->{'id'}; };

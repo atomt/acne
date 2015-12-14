@@ -140,9 +140,55 @@ sub domainAuth {
 	}
 
 	#say Dumper($response);
+	my @challenges = @{$response->{'challenges'}};
+	if ( @challenges == 0 ) {
+		die "No challenges recieved from ACME server\n";
+	}
 
-	$response->{'challenges'};
+	# Clean up
+	for my $challenge ( @challenges ) {
+		$challenge->{'token'} =~ s![^A-Za-z0-9_\-]!_!g;
+	}
+
+	@challenges;
 }
 
+sub challenge {
+	my ($s, $url, $auth) = @_;
+	my $req = { 'resource' => 'challenge', 'keyAuthorization' => $auth };
+
+	my ($code, $reason, $response) = $s->_post($url, $req);
+	if ( $code != 202 ) {
+		die "Error triggering challenge: $code $reason\n";
+	}
+
+	# Wait for ready
+	while ( 1 ) {
+		my $status = $s->challengePoll($url);
+		if ( $status eq 'pending' ) {
+			sleep 2;
+		}
+		elsif ( $status eq 'valid' ) {
+			last;
+		}
+		else {
+			die "Challenge did not pass!\n";
+		}
+	}
+
+	1;
+}
+
+sub challengePoll {
+	my ($s, $url) = @_;
+
+	my $response = $s->{'http'}->get($url);
+	my $status  = $response->{'status'};
+	my $reason  = $response->{'reason'};
+
+
+	my $content = decode_json($response->{'content'});
+	$content->{'status'};
+}
 
 1;

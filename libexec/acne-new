@@ -69,48 +69,9 @@ $ca->nonceInit;
 $account->register($ca, $ca_id)
   if !$account->registered($ca, $ca_id);
 
-# Authorize domains
-my $acme_dir = '/var/lib/acne/http'; # XXX config under group/for?
-my $http = HTTP::Tiny->new();
+$cert->issue($ca);
 
-for my $domain ( @arg_dns ) {
-	say "Authenticating domain $domain";
-
-	# This is somewhat naive and hackish for now. more or less lifted
-	# from acme-tiny.
-	say "Requesting challenges";
-	my @challenges = grep { $_->{'type'} eq 'http-01' } @{$ca->domainAuth($domain)};
-	my $challenge = $challenges[0];
-	my $token = $challenge->{'token'}; $token =~ s![^A-Za-z0-9_\-]!_!g;
-	my $thumbprint = $ca->jws->thumbprint;
-	my $keyauth = $token . '.' . $thumbprint;
-	my $wellknown_path = catdir($acme_dir, $token);
-
-	say "Publishing";
-	{
-		open my $fh, '>', $wellknown_path;
-		print $fh $keyauth;
-	}
-
-	# Perhaps have a challenge hook like the install.d/remove.d ones
-	# -> we could use dns challenges and such as well.
-
-	# Test HTTP fetching file from $domain/.well-known/acme-challenge/$token
-	# before bothering polling ACME.
-	say "HTTP sanity test";
-
-	# Notify ready
-	say "Notify ACME we are ready";
-
-	# Poll ACME
-	say "Waiting..";
-
-	say Dumper(\@challenges);
-}
-
-# Make CSR and request the cert(s)
-say "Requesting certificate";
-
+$cert->save;
 
 #say Dumper($jws);
 #say Dumper($cert);
