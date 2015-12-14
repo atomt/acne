@@ -18,25 +18,37 @@ use HTTP::Tiny;
 use Data::Dumper;
 
 my $id = shift;
-my ($arg_group, @arg_domains, $arg_ca, $arg_key, $arg_roll_key);
-GetOptions(
- 'for=s'    => \$arg_group,    # Group to use for install hooks and the like
- 'domain=s' => \@arg_domains , # Domains to put in cert
- 'key=s'    => \$arg_key,
- 'roll-key' => \$arg_roll_key, # Roll key on renewals
- 'ca=s'     => \$arg_ca        # CA config to use
-) or die "try acne help\n";
+my (
+  @arg_dns,
+  @arg_for,
+  $arg_ca,
+  $arg_key,
+  $arg_roll_key,
+  $arg_account,
+  $arg_renew_left_days
+);
 
-die "--for <name> is required\n" if !$arg_group;
+GetOptions(
+  'dns=s'      => \@arg_dns,
+  'for=s'      => \@arg_for,
+  'ca=s'       => \$arg_ca,
+  'key=s'      => \$arg_key,
+  'roll-key!'  => \$arg_roll_key,
+  'account=s'  => \$arg_account,
+  'renew-left' => \$arg_renew_left_days
+) or die "try acne help\n";
 
 umask 0077;
 chdir catdir(@ACNE::Common::libdir);
 
-my $cert = ACNE::Cert->new($id, $arg_group, {
-  dns      => \@arg_domains,
-  key      => $arg_key,
-  roll_key => $arg_roll_key,
-  ca       => $arg_ca
+my $cert = ACNE::Cert->new($id, {
+  'dns'        => \@arg_dns,
+  'for'        => \@arg_for,
+  'ca'         => $arg_ca,
+  'key'        => $arg_key,
+  'roll-key'   => $arg_roll_key,
+  'account'    => $arg_account,
+  'renew-left' => $arg_renew_left_days
 });
 
 my $ca_id      = $cert->getCAId;
@@ -57,12 +69,11 @@ $ca->nonceInit;
 $account->register($ca, $ca_id)
   if !$account->registered($ca, $ca_id);
 
-
 # Authorize domains
 my $acme_dir = '/var/lib/acne/http'; # XXX config under group/for?
 my $http = HTTP::Tiny->new();
 
-for my $domain ( @arg_domains ) {
+for my $domain ( @arg_dns ) {
 	say "Authenticating domain $domain";
 
 	# This is somewhat naive and hackish for now. more or less lifted

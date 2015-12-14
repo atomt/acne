@@ -15,15 +15,16 @@ use Data::Dumper;
 sub new {
 	my ($class, $id) = @_;
 
-	my $etc_fp  = catdir(@ACNE::Common::etcdir, 'account', $id);
-	my $lib_fp  = catdir(@ACNE::Common::libdir, 'account', $id);
-
-	bless {
+	my $s = bless {
 	  id   => $id,
-	  fp   => $lib_fp,
-	  conf => _config(catfile($etc_fp, 'config')),
+	  dir  => catdir(@ACNE::Common::libdir, 'account', $id),
+	  conf => {},
 	  pkey => undef
 	} => $class;
+
+	$s->configLoad;
+
+	$s;
 }
 
 sub getPkey  { $_[0]->{'pkey'}; }
@@ -31,13 +32,13 @@ sub getEmail { $_[0]->{'conf'}->{'email'}; }
 
 sub keyInit {
 	my ($s) = @_;
-	my $id = $s->{'id'};
+	my $id  = $s->{'id'};
+	my $dir = $s->{'dir'};
 
-	my $lib_fp  = catdir(@ACNE::Common::libdir, 'account', $id);
-	my $pkey_fp = catfile($lib_fp, 'privkey.pem');
+	my $pkey_fp = catfile($dir, 'privkey.pem');
 
-	if ( ! -e $lib_fp ) {
-		mkdir $lib_fp, 0700;
+	if ( ! -e $dir ) {
+		mkdir $dir, 0700;
 	}
 
 	# Load or generate our key
@@ -60,13 +61,13 @@ sub keyInit {
 # If this account is marked registered for specified CA
 sub registered {
 	my ($s, $ca, $ca_id) = @_;
-	-e catfile($s->{'fp'}, 'registered.' . $ca_id);
+	-e catfile($s->{'dir'}, 'registered.' . $ca_id);
 }
 
 # Register account at CA
 sub register {
 	my ($s, $ca, $ca_id) = @_;
-	my $dir   = $s->{'fp'};
+	my $dir   = $s->{'dir'};
 
 	$ca->accountRegister(
 		'agreement' => 'https://letsencrypt.org/documents/LE-SA-v1.0.1-July-27-2015.pdf',
@@ -78,9 +79,16 @@ sub register {
 
 
 # XXX validation
-sub _config {
-	my ($fp) = @_;
-	ACNE::Util::File::readPairs($fp);
+sub configLoad {
+	my ($s) = @_;
+	my $id = $s->{'id'};
+	my $fp = catfile(@ACNE::Common::etcdir, 'account', $id);
+
+	if ( -e $fp ) {
+		$s->{'conf'} = ACNE::Util::File::readPairs($fp);
+	}
+
+	1;
 }
 
 1;

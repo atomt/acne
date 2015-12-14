@@ -9,48 +9,50 @@ use ACNE::Common;
 use ACNE::Util::File;
 use ACNE::Crypto::RSA;
 
-use JSON;
 use File::Spec::Functions;
 
 sub _new {
-	my ($class, $id, $group, $conf) = @_;
+	my ($class, $id, $conf) = @_;
 
 	# Load defaults and ca config early to get early feedback.
-	my $defaults = groupDefaults($group);
+	my $defaults = ACNE::Util::File::readPairs(catfile(@ACNE::Common::etcdir, 'defaults'));
 	my $combined; { my %tmp = (%$defaults, %$conf); $combined = \%tmp };
 	
 	# Make sure CA and account is always saved to the cert json
+	# regardless if specified on command line.
 	$conf->{ca}      = $combined->{ca};
 	$conf->{account} = $combined->{account};
 
 	bless {
 	  id       => $id,
+	  dir      => catdir(@ACNE::Common::libdir, 'db', $id),
 	  conf     => $conf,
 	  defaults => $defaults,
-	  combined => $combined,
-	  group    => $group,
+	  combined => $combined
 	} => $class;
 }
 
 # Create new object
 sub new {
-	my ($class, $id, $group, $conf) = @_;
+	my ($class, $id, $conf) = @_;
 
-	die "$id already exists under $group\n"
-	  if -d dbpath($group, $id);
-
-	# Clean config (removes undefs)
+	# Clean config (removes options not specified)
 	while ( my($key, $val) = each %$conf ) {
 		delete $conf->{$key} if !defined $val;
 	}
 
-	_new(@_);
+	my $s = _new(@_);
+
+	die "$id already exists\n"
+	  if -d $s->{'dir'};
+
+	$s;
 }
 
 # Load config from db and return new object
 sub load {
-	my ($class, $id, $group) = @_;
-	my $conf_fp = catfile(dbpath($group, $id), 'config.json');
+	my ($class, $id) = @_;
+	my $conf_fp = catfile(@ACNE::Common::libdir, 'db', $id, 'config.json');
 	_new(@_, ACNE::Util::File::readJSON($conf_fp));
 }
 
@@ -73,17 +75,6 @@ sub pkeyCreate {
 	}
 
 	$ret;
-}
-
-# XXX validation
-sub groupDefaults {
-	my ($group) = @_;
-	ACNE::Util::File::readPairs(catfile(@ACNE::Common::etcdir, 'group', $group, 'defaults'));
-}
-
-sub dbpath {
-	my ($group, $id) = @_;
-	catdir(@ACNE::Common::libdir, 'db', $group, $id);
 }
 
 
