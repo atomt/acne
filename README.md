@@ -6,6 +6,11 @@ hip languages nowadays. But I'm not seeing anything in Perl! So I'm
 going to fix that.. OK, so mostly it is for me to learn how ACME works,
 but it might become something interesting.
 
+It's targeted at Perl 5.14 and newer, with minimal amount of dependencies
+outside of Perl core. Currenly only JSON and a openssl binary should be
+required. Worst case, "apt-get install libjson-perl openssl" should be
+sufficient to get going on Debian-like Linux distributions.
+
 Focus is currently on the core/protocol libraries.
 Documentation is completely absent while the basics gets fleshed out.
 
