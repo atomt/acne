@@ -16,10 +16,11 @@ sub new {
 	my ($class, $id) = @_;
 
 	my $etc_fp  = catdir(@ACNE::Common::etcdir, 'account', $id);
+	my $lib_fp  = catdir(@ACNE::Common::libdir, 'account', $id);
 
 	bless {
 	  id   => $id,
-	  fp   => $etc_fp,
+	  fp   => $lib_fp,
 	  conf => _config(catfile($etc_fp, 'config')),
 	  pkey => undef
 	} => $class;
