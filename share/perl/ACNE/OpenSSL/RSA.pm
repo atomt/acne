@@ -81,7 +81,7 @@ sub _parseKey {
 	# Ok a little clunky (instead of counting + for loop iteration)
 	while (my ($index, $val) = each @parsed ) {
 		if ( $index == 1 ) {
-			$val = ACNE::OpenSSL::RSA::FakeNum->new(pack('h*', $val));
+			$val = ACNE::OpenSSL::RSA::FakeNum->new_from_bin(pack('h*', $val));
 		}
 		else {
 			$val =~ s![\n\s+:]+!!g;
@@ -89,7 +89,7 @@ sub _parseKey {
 			# case with actual openssl library APIs so this looks like
 			# something "openssl rsa -text" helpfully adds for us.
 			$val =~ s!^00!!;
-			$val = ACNE::OpenSSL::RSA::FakeNum->new(pack('H*', $val));
+			$val = ACNE::OpenSSL::RSA::FakeNum->new_from_bin(pack('H*', $val));
 		}
 		$parsed[$index] = $val;
 	}

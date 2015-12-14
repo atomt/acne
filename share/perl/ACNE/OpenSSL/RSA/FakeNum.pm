@@ -7,7 +7,7 @@ use warnings FATAL => 'all';
 use autodie;
 use Carp qw(croak carp);
 
-sub new {
+sub new_from_bin {
 	my ($class, $data) = @_;
 	bless \$data => $class;
 }
