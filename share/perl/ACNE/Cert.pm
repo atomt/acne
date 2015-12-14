@@ -16,16 +16,18 @@ sub _new {
 
 	# Load defaults and ca config early to get early feedback.
 	my $defaults = ACNE::Util::File::readPairs(catfile(@ACNE::Common::etcdir, 'defaults'));
+	$defaults->{for} = [$defaults->{for}]; # FIXME
 	my $combined; { my %tmp = (%$defaults, %$conf); $combined = \%tmp };
 	
-	# Make sure CA and account is always saved to the cert json
+	# Make sure CA, account and for is always saved to the cert json
 	# regardless if specified on command line.
 	$conf->{ca}      = $combined->{ca};
 	$conf->{account} = $combined->{account};
+	$conf->{for}     = $combined->{for};
 
 	bless {
 	  id       => $id,
-	  dir      => catdir(@ACNE::Common::libdir, 'db', $id),
+	  dir      => catdir(@ACNE::Common::libdir, 'cert', $id),
 	  conf     => $conf,
 	  defaults => $defaults,
 	  combined => $combined
@@ -40,6 +42,7 @@ sub new {
 	while ( my($key, $val) = each %$conf ) {
 		delete $conf->{$key} if !defined $val;
 	}
+	delete $conf->{'for'} if @{$conf->{'for'}} == 0;
 
 	my $s = _new(@_);
 
@@ -52,8 +55,23 @@ sub new {
 # Load config from db and return new object
 sub load {
 	my ($class, $id) = @_;
-	my $conf_fp = catfile(@ACNE::Common::libdir, 'db', $id, 'config.json');
+	my $conf_fp = catfile(@ACNE::Common::libdir, 'cert', $id, 'config.json');
 	_new(@_, ACNE::Util::File::readJSON($conf_fp));
+}
+
+# Write cert files to cert db
+sub save {
+	my ($s) = @_;
+	my $id  = $s->{'id'};
+	my $dir = $s->{'dir'};
+
+	my $conf_fp = catfile(@ACNE::Common::libdir, 'cert', $id, 'config.json');
+
+	if ( ! -e $dir ) {
+		mkdir $dir, 0700;
+	}
+
+	ACNE::Util::File::writeJSON($s->{'conf'}, $conf_fp);
 }
 
 sub getId        { $_[0]->{'id'}; };
