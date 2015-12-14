@@ -110,7 +110,7 @@ sub domainAuth {
 	my $challenge = $challenges[0];
 
 	# Make challenge file
-	my $token     = $challenge->{'token'}; $token =~ s![^A-Za-z0-9_\-]!_!g;
+	my $token     = $challenge->{'token'};
 	my $thumb     = $acme->jws->thumbprint;
 	my $keyauth   = $token . '.' . $thumb;
 	my $path      = catfile($acme_dir, $token);
