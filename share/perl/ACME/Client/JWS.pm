@@ -13,7 +13,7 @@ use Carp qw(croak carp);
 
 use JSON;
 use MIME::Base64 qw(encode_base64url);
-use Digest::SHA qw(sha256_base64);
+use Digest::SHA qw(sha256);
 use Data::Dumper;
 
 sub new {
@@ -82,7 +82,7 @@ sub sign {
 sub thumbprint {
 	my ($s) = @_;
 	my $jwk = $s->{'header'}->{'jwk'};
-	sha256_base64(JSON->new->canonical(1)->encode($jwk));
+	encode_base64url(sha256(JSON->new->canonical(1)->encode($jwk)));
 }
 
 1;
