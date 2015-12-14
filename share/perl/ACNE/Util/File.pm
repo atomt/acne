@@ -1,16 +1,16 @@
 package ACNE::Util::File;
 
 use 5.014;
-use warnings;
+use warnings FATAL => 'all';
 use autodie;
+use Carp qw(croak carp);
 
-use IO::File;
 
+# XXX filter comments, blank lines, etc.
 sub readPairs {
 	my ($path) = @_;
 	my $ret = {};
-	my $fh = IO::File->new($path, 'r')
-	  or die "$path, $!\n";
+	open my $fh, '<', $path;
 	while ( my $line = <$fh> ) {
 		chomp($line);
 		my ($key, $val) = split(/\s+/, $line, 2);
