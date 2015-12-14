@@ -28,7 +28,6 @@ sub new {
 }
 
 sub getPkey  { $_[0]->{'pkey'}; }
-sub getEmail { $_[0]->{'conf'}->{'email'}; }
 
 sub keyInit {
 	my ($s) = @_;
@@ -68,10 +67,16 @@ sub registered {
 sub register {
 	my ($s, $ca, $ca_id) = @_;
 	my $dir   = $s->{'dir'};
+	my $email = $s->{'conf'}->{'email'};
+
+	my $contact;
+	if ( $email ) {
+		$contact = [ 'mailto:' . $email ];
+	}
 
 	$ca->accountRegister(
 		'agreement' => 'https://letsencrypt.org/documents/LE-SA-v1.0.1-July-27-2015.pdf',
-		'contact'   => [ 'mailto:'.$s->getEmail ],
+		'contact'   => $contact
 	);
 
 	ACNE::Util::File::touch(catfile($dir, 'registered.' . $ca_id));
