@@ -46,7 +46,7 @@ sub new {
 
 	my $s = _new(@_);
 
-	die "$id already exists\n"
+	die "certificate ID \"$id\" already exists\n"
 	  if -d $s->{'dir'};
 
 	$s;
