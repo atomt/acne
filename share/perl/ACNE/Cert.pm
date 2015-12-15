@@ -11,6 +11,7 @@ use ACNE::Crypto::RSA;
 
 use HTTP::Tiny;
 use File::Spec::Functions;
+use IPC::Open3;
 
 sub _new {
 	my ($class, $id, $conf) = @_;
@@ -46,9 +47,14 @@ sub new {
 	delete $conf->{'for'} if @{$conf->{'for'}} == 0;
 
 	my $s = _new(@_);
+	my $dir = $s->{'dir'};
+
+	if ( ! -e $dir ) {
+		mkdir $dir, 0700;
+	}
 
 	die "certificate ID \"$id\" already exists\n"
-	  if -d $s->{'dir'};
+	  if -d catfile($dir, 'cert');
 
 	$s;
 }
@@ -87,9 +93,11 @@ sub issue {
 	}
 
 	# Make CSR and request the cert(s)
+	say "Making Certificate Singing Request";
+	my $csr = $s->csrGenerate;
 
-	say "Requesting certificate";
-
+	say "Requesting Certificate";
+	say $ca->new_cert($csr);
 }
 
 sub domainAuth {
@@ -139,6 +147,64 @@ sub domainAuth {
 	1;
 }
 
+# FIXME most of this probably wants to go to ACNE::OpenSSL::PKCS10
+sub csrGenerate {
+	my ($s) = @_;
+	my $dir      = $s->{'dir'};
+	my $combined = $s->{'combined'};
+	my @dns      = @{$combined->{'dns'}};
+	my $key      = $combined->{'key'};
+
+	# FIXME honor roll-key 0 if renewing (eg renew flag set by load?)
+	my $pkey = $s->pkeyCreate($key);
+
+	# Write pkey and openssl config to certs db directory (new-prefix)
+	my $pkey_fp = catdir($dir, 'new-key.pem');
+	my $conf_fp = catdir($dir, 'new-csr.conf');
+
+	open my $pkey_fh, '>', $pkey_fp;
+	print $pkey_fh $pkey->get_private_key_string;
+
+	# Create a CSR config which can be reused without special arguments
+	# for debugging.
+	open my $conf_fh, '>', $conf_fp;
+
+	print $conf_fh '[req]', "\n",
+	  'distinguished_name = req_distinguished_name', "\n",
+	  'req_extensions = v3_req', "\n",
+
+	  '[req_distinguished_name]', "\n",
+	  'commonName = Common Name', "\n",
+	  'commonName_max = 256', "\n",
+	  'commonName_default = ', $dns[0], "\n",
+	  '[ v3_req ]', "\n",
+	  'basicConstraints = CA:FALSE', "\n",
+	  'keyUsage = nonRepudiation, digitalSignature, keyEncipherment, keyAgreement', "\n";
+
+	if ( @dns > 1 ) {
+		print $conf_fh
+		  'subjectAltName = @alt_names', "\n",
+		  '[alt_names]', "\n";
+		while ( my ($i, $val) = each @dns ) {
+			print $conf_fh sprintf("DNS.%d = %s\n", $i + 1, $val);
+		}
+	}
+
+	undef $conf_fh;
+	undef $pkey_fh;
+
+	my ($reader, $writer);
+	my $pid = open3($writer, $reader, '>&STDERR',
+	  'openssl', 'req', '-new', '-outform', 'DER', '-key', $pkey_fp, '-sha256', '-config', $conf_fp, '-batch'
+	);
+	my $output = do { local $/; <$reader> };
+	waitpid($pid, 0);
+	my $exitval = $? >> 8;
+	die "openssl rsa exit $exitval" if $exitval != 0;
+
+	$output;
+}
+
 sub getId        { $_[0]->{'id'}; };
 sub getCAId      { $_[0]->{'combined'}->{'ca'}; }
 sub getAccountId { $_[0]->{'combined'}->{'account'}; }
@@ -146,12 +212,12 @@ sub getKeyConf   { $_[0]->{'combined'}->{'key'}; }
 sub getRollKey   { $_[0]->{'combined'}->{'roll-key'}; }
 
 sub pkeyCreate {
-	my ($conf) = @_;
+	my ($s, $conf) = @_;
 	my $ret;
 
 	my ($type, $arg) = split(/:/, $conf, 2);
 	if ( $type eq 'rsa' ) {
-		$ret = ACNE::Crypto::RSA->new($arg);
+		$ret = ACNE::Crypto::RSA->generate_key($arg);
 	}
 	else {
 		die "Unsupported key type \"$type\"\n";
@@ -159,6 +225,5 @@ sub pkeyCreate {
 
 	$ret;
 }
-
 
 1;
