@@ -41,6 +41,7 @@ sub new {
 	$s;
 }
 
+sub jws       { $_[0]->{'jws'}; }
 sub directory { $_[0]->{'directory'}->{$_[1]} or die "request name not in directory"; }
 
 sub _post {
