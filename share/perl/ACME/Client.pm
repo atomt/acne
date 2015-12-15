@@ -8,6 +8,7 @@ use Carp qw(croak carp);
 use ACME::Client::JWS;
 use JSON;
 use HTTP::Tiny;
+use MIME::Base64 qw(encode_base64 encode_base64url);
 use Data::Dumper;
 
 sub new {
@@ -189,6 +190,38 @@ sub challengePoll {
 
 	my $content = decode_json($response->{'content'});
 	$content->{'status'};
+}
+
+# FIXME instead of open-coding our _post here we should have it not
+# return decoded json, have the callers decode if json is expected.
+sub new_cert {
+	my ($s, $csr) = @_;
+	my $baseurl = $s->{'baseurl'};
+	my $http    = $s->{'http'};
+	my $jws     = $s->{'jws'};
+	my $nonce   = $s->{'nonce'};
+
+	my $req = {
+	  'resource' => 'new-cert',
+	  'csr'      => encode_base64url($csr)
+	};
+
+	my $signed = $jws->sign($req, { nonce => $nonce });
+
+	my $response = $http->post($baseurl . '/acme/new-cert', {
+	  content => $signed
+	});
+
+	my $status = $response->{'status'};
+	if ( $status != 201 ) {
+		my $reason  = $response->{'reason'};
+		die "Error signing certificate: $status $reason\n";
+	}
+
+	sprintf(
+	  "-----BEGIN CERTIFICATE-----\n%s-----END CERTIFICATE-----",
+	  encode_base64($response->{'content'})
+	);
 }
 
 1;
