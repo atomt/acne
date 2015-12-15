@@ -66,13 +66,28 @@ sub _post {
 	my $jws   = $s->{'jws'};
 	my $nonce = $s->{'nonce'};
 
-	my $signed = $jws->sign($payload, {
-	  nonce => $nonce
-	});
+	my $signed   = $jws->sign($payload, { nonce => $nonce });
+	my $response = $http->post($url, { content => $signed });
+	my $status   = $response->{'status'};
+	my $reason   = $response->{'reason'};
+	my $headers  = $response->{'headers'};
 
-	my $response = $http->post($url, {
-	  content => $signed
-	});
+	# Update nonce
+	if ( my $nonce = $headers->{'replay-nonce'} ) {
+		$s->{'nonce'} = $nonce;
+	}
+	else {
+		die "No nonce could be aquired! $status $reason\n";
+	}
+
+	return ($status, $reason, $response->{'content'});
+}
+
+sub _get {
+	my ($s, $url) = @_;
+	my $http     = $s->{'http'};
+	my $nonce    = $s->{'nonce'};
+	my $response = $http->get($url);
 
 	my $status  = $response->{'status'};
 	my $reason  = $response->{'reason'};
@@ -86,7 +101,7 @@ sub _post {
 		die "No nonce could be aquired! $status $reason\n";
 	}
 
-	return ($status, $reason, decode_json($response->{'content'}));
+	return ($status, $reason, $response->{'content'});
 }
 
 sub new_reg {
@@ -104,19 +119,19 @@ sub new_reg {
 		$req->{'contact'} = $contact;
 	}
 
-	my ($code, $reason, $response) = $s->_post($baseurl . '/acme/new-reg', $req);
+	my ($status, $reason, $response) = $s->_post($baseurl . '/acme/new-reg', $req);
 
 	my $ret;
-	if ( $code == 201 ) {
+	if ( $status == 201 ) {
 		say 'Account successfully created';
 		$ret = 1;
 	}
-	elsif ( $code == 409 ) {
+	elsif ( $status == 409 ) {
 		say 'Account already registered';
 		$ret = 2;
 	}
 	else {
-		die "Error registering: $code $reason\n";
+		die "Error registering: $status $reason\n";
 	}
 
 	$ret;
@@ -134,14 +149,14 @@ sub new_authz {
 		}
 	};
 
-	my ($code, $reason, $response) = $s->_post($baseurl . '/acme/new-authz', $req);
+	my ($status, $reason, $content) = $s->_post($baseurl . '/acme/new-authz', $req);
 
-	if ( $code != 201 ) {
-		die "Error requesting challenge: $code $reason\n";
+	if ( $status != 201 ) {
+		die "Error requesting challenge: $status $reason\n";
 	}
 
-	#say Dumper($response);
-	my @challenges = @{$response->{'challenges'}};
+	my $json = decode_json($content);
+	my @challenges = @{$json->{'challenges'}};
 	if ( @challenges == 0 ) {
 		die "No challenges recieved from ACME server\n";
 	}
@@ -158,9 +173,9 @@ sub challenge {
 	my ($s, $url, $auth) = @_;
 	my $req = { 'resource' => 'challenge', 'keyAuthorization' => $auth };
 
-	my ($code, $reason, $response) = $s->_post($url, $req);
-	if ( $code != 202 ) {
-		die "Error triggering challenge: $code $reason\n";
+	my ($status, $reason, $content) = $s->_post($url, $req);
+	if ( $status != 202 ) {
+		die "Error triggering challenge: $status $reason\n";
 	}
 
 	# Wait for ready
@@ -183,44 +198,34 @@ sub challenge {
 sub challengePoll {
 	my ($s, $url) = @_;
 
-	my $response = $s->{'http'}->get($url);
-	my $status  = $response->{'status'};
-	my $reason  = $response->{'reason'};
+	my ($status, $reason, $content) = $s->_get($url);
 
+	if ( $status != 202 ) {
+		die "Error polling challenge: $status $reason\n";
+	}
 
-	my $content = decode_json($response->{'content'});
-	$content->{'status'};
+	my $json = decode_json($content);
+	$json->{'status'};
 }
 
-# FIXME instead of open-coding our _post here we should have it not
-# return decoded json, have the callers decode if json is expected.
 sub new_cert {
 	my ($s, $csr) = @_;
 	my $baseurl = $s->{'baseurl'};
-	my $http    = $s->{'http'};
-	my $jws     = $s->{'jws'};
-	my $nonce   = $s->{'nonce'};
 
 	my $req = {
 	  'resource' => 'new-cert',
 	  'csr'      => encode_base64url($csr)
 	};
 
-	my $signed = $jws->sign($req, { nonce => $nonce });
+	my ($status, $reason, $content) = $s->_post($baseurl . '/acme/new-cert', $req);
 
-	my $response = $http->post($baseurl . '/acme/new-cert', {
-	  content => $signed
-	});
-
-	my $status = $response->{'status'};
 	if ( $status != 201 ) {
-		my $reason  = $response->{'reason'};
 		die "Error signing certificate: $status $reason\n";
 	}
 
 	sprintf(
 	  "-----BEGIN CERTIFICATE-----\n%s-----END CERTIFICATE-----",
-	  encode_base64($response->{'content'})
+	  encode_base64($content)
 	);
 }
 
