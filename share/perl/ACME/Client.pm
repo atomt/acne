@@ -78,7 +78,6 @@ sub _update_nonce {
 
 sub new_reg {
 	my ($s, %args) = @_;
-	my $baseurl = $s->{'baseurl'};
 
 	my $contact   = $args{'contact'};
 	my $agreement = $args{'agreement'};
@@ -111,7 +110,6 @@ sub new_reg {
 
 sub new_authz {
 	my ($s, $domain) = @_;
-	my $baseurl = $s->{'baseurl'};
 
 	my $req = {
 		'resource'   => 'new-authz',
@@ -183,7 +181,6 @@ sub challengePoll {
 
 sub new_cert {
 	my ($s, $csr) = @_;
-	my $baseurl = $s->{'baseurl'};
 
 	my $req = {
 	  'resource' => 'new-cert',
