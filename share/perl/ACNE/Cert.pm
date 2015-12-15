@@ -144,6 +144,8 @@ sub domainAuth {
 	$acme->challenge($challenge->{'uri'}, $keyauth);
 	say "Domain $domain verified!";
 
+	unlink $path;
+
 	1;
 }
 
