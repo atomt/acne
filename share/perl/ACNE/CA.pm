@@ -18,7 +18,7 @@ sub new {
 
 	ACME::Client->new(
 	  pkey    => $pkey,
-	  baseurl => $conf->{'acme-server'}
+	  address => $conf->{'acme-server'}
 	);
 }
 
