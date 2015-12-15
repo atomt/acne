@@ -74,7 +74,7 @@ sub register {
 		$contact = [ 'mailto:' . $email ];
 	}
 
-	$ca->accountRegister(
+	$ca->new_reg(
 		'agreement' => 'https://letsencrypt.org/documents/LE-SA-v1.0.1-July-27-2015.pdf',
 		'contact'   => $contact
 	);

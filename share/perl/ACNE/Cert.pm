@@ -108,7 +108,7 @@ sub domainAuth {
 	my $acme_dir = '/srv/web/shared/acme'; # FIXME read from config
 
 	say "Requesting challenges";
-	my @challenges_all = $acme->domainAuth($domain);
+	my @challenges_all = $acme->new_authz($domain);
 	my @challenges = grep { $_->{'type'} eq 'http-01' } @challenges_all;
 
 	if ( @challenges == 0 ) {

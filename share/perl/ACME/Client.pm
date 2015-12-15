@@ -89,7 +89,7 @@ sub _post {
 	return ($status, $reason, decode_json($response->{'content'}));
 }
 
-sub accountRegister {
+sub new_reg {
 	my ($s, %args) = @_;
 	my $baseurl = $s->{'baseurl'};
 
@@ -122,7 +122,7 @@ sub accountRegister {
 	$ret;
 }
 
-sub domainAuth {
+sub new_authz {
 	my ($s, $domain) = @_;
 	my $baseurl = $s->{'baseurl'};
 
