@@ -156,25 +156,30 @@ sub csrGenerate {
 	my $combined = $s->{'combined'};
 	my @dns      = @{$combined->{'dns'}};
 	my $key      = $combined->{'key'};
+	my $roll     = $combined->{'roll-key'};
+	
+	# If roll-key = 1, we always generate new key.
+	# if 0, we load the key if we have it, otherwise generate new key.
+	# FIXME not EC aware
+	# FIXME force roll if parameters have changed?
+	my $pkey_fp     = catfile($dir, 'new-key.pem');
+	my $pkey_old_fp = catfile($dir, 'key.pem');
+	my $pkey;
 
-	# FIXME honor roll-key 0 if renewing (eg renew flag set by load?)
-	my $pkey = $s->pkeyCreate($key);
-
-	# Write pkey and openssl config to certs db directory (new-prefix)
-	my $pkey_fp = catdir($dir, 'new-key.pem');
-	my $conf_fp = catdir($dir, 'new-csr.conf');
-
-	open my $pkey_fh, '>', $pkey_fp;
-	print $pkey_fh $pkey->get_private_key_string;
+	if ( !$roll && -e $pkey_old_fp ) {
+		$pkey = ACNE::Crypto::RSA->load($pkey_old_fp);
+	}
+	else {
+		$pkey = $s->pkeyCreate($key);
+	}
+	$pkey->save($pkey_fp, 0600);
 
 	# Create a CSR config which can be reused without special arguments
-	# for debugging.
+	my $conf_fp = catdir($dir, 'new-csr.conf');
 	open my $conf_fh, '>', $conf_fp;
-
 	print $conf_fh '[req]', "\n",
 	  'distinguished_name = req_distinguished_name', "\n",
 	  'req_extensions = v3_req', "\n",
-
 	  '[req_distinguished_name]', "\n",
 	  'commonName = Common Name', "\n",
 	  'commonName_max = 256', "\n",
@@ -193,7 +198,6 @@ sub csrGenerate {
 	}
 
 	undef $conf_fh;
-	undef $pkey_fh;
 
 	my ($reader, $writer);
 	my $pid = open3($writer, $reader, '>&STDERR',
