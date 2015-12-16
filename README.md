@@ -1,5 +1,5 @@
 # WARNING
-*This is very experimental. It's currently not easily installable and is badly documented.*
+*This is very experimental. It's currently not easily installable and is badly documented. If you dont guess the correct configuration, it will fail in mysterious ways*
 
 # acne - a ACME/Let's Encrypt client
 Acne is a ACME client that manages keys and certificates for you, but little else. When certificates change it will call out to a set of integration hook scripts. These would typically install the certs and reload the affected daemons. Or invoke some configuration management system.
