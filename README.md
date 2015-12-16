@@ -1,23 +1,13 @@
 # acne
 Experimental ACME client
 
-Everyone and their dog is writing ACME/Lets Encrypt clients in all the
-hip languages nowadays. So I'm going to write one in Perl. It's primarily
-a learn myself ACME kind of project, but *could* turn into something
-interesting.
+Everyone and their dog is writing ACME/Lets Encrypt clients in all the hip languages nowadays. So I'm going to write one in Perl.
 
-It's targeted at Perl 5.14 and newer, with minimal amount of dependencies
-outside of Perl core. Focus is currently on the core/protocol libraries.
-Documentation is completely absent while the basics gets fleshed out.
+It's targeted at Perl 5.14 and newer, with minimal amount of dependencies outside of Perl core. Focus is currently on the core/protocol libraries. Documentation is completely absent while the basics gets fleshed out.
 
-Plan is to have something easily extendable with hooks in form of .d
-directories with scripts, multiple CA/accounts and some smarts with
-regards to rolling keys automatically on renews, remembering cert to CA
-mappings and such.
+Plan is to have something easily extendable with hooks in form of .d directories with scripts, multiple CA/accounts and some smarts with regards to rolling keys automatically on renews, remembering cert to CA mappings and such.
 
-Some of this is working now; we have a working JWS + ACME client library,
-we can register accounts, submit domains for authorization, write out
-challenges and get cert + chain.
+Some of this is working now; we have a working JWS + ACME client library, we can register accounts, submit domains for authorization, write out challenges and get cert + chain.
 
 ## Basic usage
 
