@@ -27,11 +27,11 @@ Create a new "acmetest" entry in our store and get a certificate for domain "acm
 Multiple domains on a single certificate (SANs)
 > acme new acmetest -d example.com -d www.example.com
 
-Use a non-default set of hooks (calling out to say ansible also possible)
+Use a non-default set of hooks (calling out to say ansible also possible, also used on renew)
 > acne new acmetest -d acmetest.example.com --for nginx --for dovecot
 
 Or use some other ACME enabled CA for this one certificate?
 > acne new acmetest -d acmetest.example.com --ca superawesomeacmeca
 
-Renew all certificates in the store close to their expiry date, using same settings specified at new time
+Renew all certificates in the store close to their expiry date, using same settings specified when created, including what hooks, CA and so on.
 > acne renew-auto
