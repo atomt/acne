@@ -25,3 +25,11 @@ Or use some other ACME enabled CA for this one certificate?
 
 Renew all certificates in the store close to their expiry date, using same settings specified when created, including what hooks, CA and so on.
 > acne renew-auto
+
+## Installation
+Set up certificate store, default settings
+> acne init
+
+### Dependencies
+#### Ubuntu 12.04+, Debian 7+
+> apt-get install libjson-perl libnet-ssleay-perl openssl
