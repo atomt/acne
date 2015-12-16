@@ -17,7 +17,9 @@ use File::Spec::Functions;
 use HTTP::Tiny;
 use Data::Dumper;
 
-my $id = shift;
+my $cmd = shift;
+my $id  = shift;
+
 my (
   @arg_dns,
   @arg_for,

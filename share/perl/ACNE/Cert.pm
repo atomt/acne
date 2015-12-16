@@ -31,6 +31,7 @@ sub _new {
 	  id       => $id,
 	  dir      => catdir(@ACNE::Common::libdir, 'cert', $id),
 	  conf     => $conf,
+	  chain    => undef,
 	  defaults => $defaults,
 	  combined => $combined
 	} => $class;
@@ -54,7 +55,7 @@ sub new {
 	}
 
 	die "certificate ID \"$id\" already exists\n"
-	  if -d catfile($dir, 'cert');
+	  if -e catfile($dir, 'cert.pem');
 
 	$s;
 }
@@ -70,34 +71,61 @@ sub load {
 # Write cert files to cert db
 sub save {
 	my ($s) = @_;
-	my $id  = $s->{'id'};
-	my $dir = $s->{'dir'};
+	my $id    = $s->{'id'};
+	my $dir   = $s->{'dir'};
+	my @chain = @{$s->{'chain'}};
 
-	my $conf_fp = catfile(@ACNE::Common::libdir, 'cert', $id, 'config.json');
+	my $conf_fp      = catfile($dir, 'config.json');
+	my $key_new_fp   = catfile($dir, 'new-key.pem');
+	my $key_fp       = catfile($dir, 'key.pem');
+	my $oconf_new_fp = catfile($dir, 'new-csr.conf');
+	my $oconf_fp     = catfile($dir, 'csr.conf');
+	my $fullchain_fp = catfile($dir, 'fullchain.pem');
+	my $chain_fp     = catfile($dir, 'chain.pem');
+	my $cert_fp      = catfile($dir, 'cert.pem');
 
 	if ( ! -e $dir ) {
 		mkdir $dir, 0700;
 	}
 
+	# JSON config
 	ACNE::Util::File::writeJSON($s->{'conf'}, $conf_fp);
+
+	# Certs
+	open my $fullchain_fh, '>', $fullchain_fp;
+	print $fullchain_fh join("\n", @chain), "\n";
+
+	my $cert = shift @chain;
+	open my $cert_fh, '>', $cert_fp;
+	print $cert_fh $cert, "\n";
+
+	open my $chain_fh, '>', $chain_fp;
+	print $chain_fh join("\n", @chain), "\n";
+
+	# Key and CSR config
+	rename $key_new_fp, $key_fp;
+	rename $oconf_new_fp, $oconf_fp;
+
 }
 
 sub issue {
 	my ($s, $ca) = @_;
+	my $dir = $s->{'dir'};
 	my @dns = @{$s->{'conf'}->{'dns'}};
 
-	# Authorize domains
 	for my $domain ( @dns ) {
-		say "Authenticating domain $domain";
+		say "Authorizing domain $domain";
 		$s->domainAuth($ca, $domain)
 	}
 
-	# Make CSR and request the cert(s)
 	say "Making Certificate Singing Request";
 	my $csr = $s->csrGenerate;
 
-	say "Requesting Certificate";
-	say $ca->new_cert($csr);
+	say "Requesting Certificate(s)";
+	my @chain = $ca->new_cert($csr);
+	$s->{'chain'} = \@chain;
+
+	1;
 }
 
 sub domainAuth {

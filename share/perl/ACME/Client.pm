@@ -194,10 +194,77 @@ sub new_cert {
 		die "Error signing certificate: $r->{status} $r->{reason}\n";
 	}
 
+	# FIXME should return the URL reported in the headers for later
+	# re-dowloading as well.
+
+	my @chain;
+	push @chain, _cert_format($r->{'content'});
+
+	my $links = _links($r->{'headers'});
+	my $uri   = $links->{'up'};
+	$s->_cert_walk_link($uri, \@chain);
+
+	@chain;
+}
+
+sub _cert_walk_link {
+	my ($s, $uri, $chain) = @_;
+	my $max = 10;
+
+	while ( $uri && @$chain < $max ) {
+		my ($cert, $next) = $s->_cert_get($uri);
+		$uri = $next;
+		push @$chain, _cert_format($cert);
+	}
+
+	die "Recursion limit reached at $uri\n"
+	  if $uri;
+
+	1;
+}
+
+sub _cert_get {
+	my ($s, $uri) = @_;
+	my $http = $s->{'http'};
+
+	my $r = $http->get($uri);
+
+	if ( $r->{'status'} != 200 ) {
+		die "_cert_get $r->{status} $r->{reason}";
+	}
+
+	my $links = _links($r->{'headers'});
+	my $next  = $links->{'up'};
+
+	return ($r->{'content'}, $next);
+}
+
+sub _cert_format {
 	sprintf(
 	  "-----BEGIN CERTIFICATE-----\n%s-----END CERTIFICATE-----",
-	  encode_base64($r->{'content'})
+	  encode_base64($_[0])
 	);
+}
+
+sub _links {
+	my ($headers) = @_;
+	my $ret = {};
+
+	my $links = $headers->{'link'}
+	  or return $ret;
+
+	my $http_link_re = qr/^\<(.*)\>;rel=\"(.*)\"$/;
+
+	for my $entry ( ref $links eq 'ARRAY' ? @$links : $links ) {
+		if ( my ($uri, $rel) = $entry =~ $http_link_re ) {
+			$ret->{$rel} = $uri;
+			#say $link, ' ', $rel;
+		}
+		else {
+			die "bullshit link header \"$entry\"\n";
+		}
+	}
+	$ret;
 }
 
 1;
