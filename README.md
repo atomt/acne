@@ -24,7 +24,7 @@ Or use some other ACME enabled CA for this one certificate?
 Renew all certificates in the store close to their expiry date, using same settings specified when created, including what hooks, CA and so on.
 > acne renew-auto
 
-Renew a "acmetest" certificate regardless of expiry date
+Renew "acmetest" certificate regardless of expiry date
 > acne renew acmetest
 
 ## Installation
