@@ -1,9 +1,10 @@
-# acne
-Experimental ACME client
+# WARNING
+*This is very experimental. It's currently not easily installable and is badly documented.*
 
-Everyone and their dog is writing ACME/Lets Encrypt clients in all the hip languages nowadays. So I'm going to write one in Perl. It's targeted at Perl 5.14 and newer, with minimal amount of dependencies outside of Perl core. Focus is currently on the core/protocol libraries. Documentation is mostly absent while the basics gets fleshed out.
+# acne - a ACME/Let's Encrypt client
+Acne is a ACME client that manages keys and certificates for you, but little else. When certificates change it will call out to a set of integration hook scripts. These would typically install the certs and reload the affected daemons. Or invoke some configuration management system.
 
-Plan is to have something easily extendable with hooks in form of .d directories with scripts, multiple CA/accounts and some smarts with regards to rolling keys automatically on renews, remembering cert to CA/hooks mappings and such. Acne itself will only manage certificates and keys, user supplied hook scripts will be responsible for installing certificates and reloading daemons.
+It supports per certificate settings, like what CA, key parameters and what hooks to invoke, which will be preserved for automatic and manual renews. You could have some certificates issued from an internal PKI, and other from Let's Encrypt, for example.
 
 Some of this is working now; we have a working JWS + ACME client library, we can register accounts, submit domains for authorization, write out challenges and get cert + chain.
 
@@ -32,5 +33,7 @@ Set up certificate store, default settings
 > acne init
 
 ### Dependencies
+Anything Unixy capable of running Perl 5.14 or later should work. This includes all currently supported platforms I know of.
+
 #### Ubuntu 12.04+, Debian 7+
 > apt-get install libjson-perl libnet-ssleay-perl openssl
