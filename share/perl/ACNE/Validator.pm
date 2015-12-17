@@ -85,16 +85,14 @@ sub process {
 				$ret->{$k} = $v->{'default'};
 			}
 			else {
-				push @errors, "parameter $k missing in input\n";
+				push @errors, "key $k missing\n";
 			}
 		}
 
 	}
 
-	if ( keys %$data ) {
-		push @errors, "unknown key \"$_\" in input\n"
-		  for keys %$data;
-	}
+	push @errors, "unknown key \"$_\"\n"
+	  for keys %$data;
 
 	# Golang style error handling - return what we have ;-)
 	if ( wantarray ) {
