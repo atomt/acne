@@ -9,7 +9,6 @@ use ACME::Client::JWS;
 use JSON;
 use HTTP::Tiny;
 use MIME::Base64 qw(encode_base64 encode_base64url);
-use Data::Dumper;
 
 sub new {
 	my ($class, %args) = @_;

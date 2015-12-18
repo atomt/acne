@@ -10,7 +10,6 @@ use ACNE::Util::File;
 use ACNE::Crypto::RSA;
 
 use File::Spec::Functions;
-use Data::Dumper;
 
 sub new {
 	my ($class, $id) = @_;
