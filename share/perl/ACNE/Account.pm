@@ -5,7 +5,7 @@ use warnings FATAL => 'all';
 use autodie;
 use Carp qw(croak carp);
 
-use ACNE::Common;
+use ACNE::Common qw($config);
 use ACNE::Util::File;
 use ACNE::Crypto::RSA;
 
@@ -14,14 +14,15 @@ use File::Spec::Functions;
 sub new {
 	my ($class, $id) = @_;
 
+	my $conf = $config->{'account'}->{$id}
+	  or die "Specified account \"$id\" has no valid configuration\n";
+
 	my $s = bless {
 	  id   => $id,
-	  dir  => catdir(@ACNE::Common::libdir, 'account', $id),
-	  conf => {},
+	  dir  => catdir(@{$config->{'system'}->{'store'}}, 'account', $id),
+	  conf => $conf,
 	  pkey => undef
 	} => $class;
-
-	$s->configLoad;
 
 	$s;
 }
@@ -79,20 +80,6 @@ sub register {
 	);
 
 	ACNE::Util::File::touch(catfile($dir, 'registered.' . $ca_id));
-}
-
-
-# XXX validation
-sub configLoad {
-	my ($s) = @_;
-	my $id = $s->{'id'};
-	my $fp = catfile(@ACNE::Common::etcdir, 'account', $id);
-
-	if ( -e $fp ) {
-		$s->{'conf'} = ACNE::Util::File::readPairs($fp);
-	}
-
-	1;
 }
 
 1;
