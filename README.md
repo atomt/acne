@@ -34,11 +34,11 @@ The configuration file is loaded from /etc/acne/config by default. It is a simpl
     system.store /var/lib/acne
     challenge.http01fs.acmeroot /srv/web/shared/acme
 
-You probably want to define a contact email for account recovery and such, though.
+You probably want to define a contact email for account recovery and such.
 
     account.default.email someone@example.com
 
-It's also highly recomended to create a dedicated user for acne, otherwise it will run as root. Hooks will need to keep non-root operation in mind, though.
+It's also highly recomended to create a dedicated user for acne, otherwise it will run as root. Hooks will need to keep non-root operation in mind.
 
     system.user acne
     
