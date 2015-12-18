@@ -9,7 +9,7 @@ use ACNE::Common qw($config);
 use ACNE::Util::File;
 use ACNE::Crypto::RSA;
 
-use File::Spec::Functions;
+use File::Spec::Functions qw(catdir catfile);
 
 sub new {
 	my ($class, $id) = @_;

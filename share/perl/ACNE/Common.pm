@@ -7,10 +7,10 @@ use autodie;
 use Exporter 'import';
 our @EXPORT_OK = qw($config);
 
-use File::Spec::Functions;
+use File::Spec::Functions qw(catfile);
 use ACNE::Validator;
 
-our @etcdir = (rootdir(), 'etc', 'acne');
+our @etcdir = ('', 'etc', 'acne');
 
 my $system_validator = ACNE::Validator->new(
 	'store' => {

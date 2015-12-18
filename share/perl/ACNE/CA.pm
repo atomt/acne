@@ -7,7 +7,6 @@ use Carp qw(croak carp);
 
 use ACNE::Common qw($config);
 use ACME::Client;
-use File::Spec::Functions;
 
 # Load config and pass on to ACME::Client
 sub new {

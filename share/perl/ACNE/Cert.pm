@@ -10,7 +10,7 @@ use ACNE::Util::File;
 use ACNE::Crypto::RSA;
 
 use HTTP::Tiny;
-use File::Spec::Functions;
+use File::Spec::Functions qw(catdir catfile);
 use IPC::Open3;
 
 sub _new {
