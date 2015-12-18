@@ -5,7 +5,7 @@ use warnings FATAL => 'all';
 use autodie;
 use Carp qw(croak carp);
 
-use ACNE::Common;
+use ACNE::Common qw($config);
 use ACNE::Util::File;
 use ACNE::Crypto::RSA;
 
@@ -17,7 +17,7 @@ sub _new {
 	my ($class, $id, $conf) = @_;
 
 	# Load defaults and ca config early to get early feedback.
-	my $defaults = ACNE::Util::File::readPairs(catfile(@ACNE::Common::etcdir, 'defaults'));
+	my $defaults = $config->{'defaults'};
 	$defaults->{for} = [$defaults->{for}]; # FIXME
 	my $combined; { my %tmp = (%$defaults, %$conf); $combined = \%tmp };
 	
@@ -29,7 +29,7 @@ sub _new {
 
 	bless {
 	  id       => $id,
-	  dir      => catdir(@ACNE::Common::libdir, 'cert', $id),
+	  dir      => catdir(@{$config->{'system'}->{'store'}}, 'cert', $id),
 	  conf     => $conf,
 	  chain    => undef,
 	  defaults => $defaults,

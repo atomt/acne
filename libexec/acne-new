@@ -7,7 +7,7 @@ use autodie;
 use FindBin;
 use lib "$FindBin::Bin/../share/perl";
 
-use ACNE::Common;
+use ACNE::Common qw($config);
 use ACNE::Account;
 use ACNE::Cert;
 use ACNE::CA;
@@ -15,7 +15,6 @@ use ACNE::CA;
 use Getopt::Long;
 use File::Spec::Functions;
 use HTTP::Tiny;
-use Data::Dumper;
 
 my $cmd = shift;
 my $id  = shift;
@@ -40,8 +39,10 @@ GetOptions(
   'renew-left' => \$arg_renew_left_days
 ) or die "try acne help\n";
 
+ACNE::Common::config();
+
 umask 0077;
-chdir catdir(@ACNE::Common::libdir);
+chdir catdir(@{$config->{'system'}->{'store'}});
 
 my $cert = ACNE::Cert->new($id, {
   'dns'        => \@arg_dns,

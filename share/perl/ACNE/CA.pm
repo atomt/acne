@@ -5,7 +5,7 @@ use warnings FATAL => 'all';
 use autodie;
 use Carp qw(croak carp);
 
-use ACNE::Common;
+use ACNE::Common qw($config);
 use ACME::Client;
 use File::Spec::Functions;
 
@@ -13,18 +13,13 @@ use File::Spec::Functions;
 sub new {
 	my ($class, $id, $pkey) = @_;
 
-	my $etc_fp = catdir(@ACNE::Common::etcdir, 'ca', $id);
-	my $conf = _config(catfile($etc_fp, 'config'));
+	my $conf = $config->{'ca'}->{$id}
+	  or die "Specified CA \"$id\" has no valid configuration\n";
 
 	ACME::Client->new(
 	  pkey    => $pkey,
 	  address => $conf->{'acme-server'}
 	);
-}
-
-sub _config {
-	my ($fp) = @_;
-	ACNE::Util::File::readPairs($fp);
 }
 
 1;
