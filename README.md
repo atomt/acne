@@ -44,12 +44,12 @@ It's also highly recomended to create a dedicated user for acne, otherwise it wi
     
 And to use the non-testing production Let's Encrypt by default (can be overidden with --ca on new)
 
-    defaults.ca         letsencrypt
+    defaults.ca letsencrypt
 
 Full example
 
-    system.store     /var/lib/acne
-    system.user      root
+    system.store  /var/lib/acne
+    system.user   root
     
     account.default.email someone@example.com
     account.default.tel   776-2323
@@ -63,7 +63,7 @@ Full example
     
     challenge.http01fs.acmeroot /srv/web/shared/acme
     
-    ca.internal.host    acme-v1.api.example.com
+    ca.internal.host acme-v1.api.example.com
 
 ## Installation
 Set up certificate store, default settings
