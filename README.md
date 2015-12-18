@@ -40,16 +40,20 @@ Anything Unixy capable of running Perl 5.14 or later should work. This includes 
 
 ## Configuration
 The configuration file is loaded from /etc/acne/config by default. It is a simple key value file. A minimal configuration would look like this, to set up our certificate/key store and the webserver challenge root.
+
     system.store /var/lib/acne
     challenge.http01fs.acmeroot /srv/web/shared/acme
 
 You probably want to define a contact email for account recovery and such, though.
+
     account.default.email someone@example.com
 
 And to use the non-testing production Let's Encrypt by default (can be overidden with --ca on new)
+
     defaults.ca         letsencrypt
 
 Full example
+
     system.store     /var/lib/acne
     system.user      root
     
