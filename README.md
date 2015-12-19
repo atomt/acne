@@ -29,10 +29,11 @@ Renew "acmetest" certificate regardless of expiry date
 > acne renew acmetest
 
 ## Configuration
-The configuration file is loaded from /etc/acne/config by default. It is a simple key value file. A minimal configuration would look like this, to set up our certificate/key store and the webserver challenge root.
+The configuration file is loaded from /etc/acne/config by default. It is a simple key value file. A minimal configuration would look like this, to set up the webserver challenge root. Your websites needs to point /.well-known/acme-challenge/ to this path for the domain verification to work.
 
-    system.store /var/lib/acne
     challenge.http01fs.acmeroot /srv/web/shared/acme
+
+In the future, other methods might get supported.
 
 You probably want to define a contact email for account recovery and such.
 
