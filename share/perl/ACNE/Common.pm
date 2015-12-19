@@ -9,6 +9,7 @@ our @EXPORT_OK = qw($config);
 
 use File::Spec::Functions qw(catfile);
 use ACNE::Validator;
+use ACNE::Util::File;
 
 our @etcdir = ('', 'etc', 'acne');
 
