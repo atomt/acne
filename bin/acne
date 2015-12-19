@@ -1,0 +1,29 @@
+#!/usr/bin/perl
+
+use 5.014;
+use warnings FATAL => 'all';
+use autodie;
+
+umask 0077;
+
+my $cmd = $ARGV[0];
+
+my %commands = (
+	'init'       => 'ACNE::Cmd::Init',
+	'new'        => 'ACNE::Cmd::NewRenew',
+	'help'       => 'ACNE::Cmd::Help',
+	'renew'      => 'ACNE::Cmd::NewRenew',
+	'renew-auto' => 'ACNE::Cmd::RenewAuto',
+	'revoke'     => 'ACNE::Cmd::Revoke',
+	'install'    => 'ACNE::Cmd::Install',
+);
+
+my $class = $commands{$cmd} || cmderr();
+my $file = $class; $file =~ s!::!/!g;
+require $file . '.pm';
+$class->run();
+
+sub cmderr {
+	say STDERR "Aeeee!";
+	exit 1;
+}

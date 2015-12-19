@@ -37,7 +37,7 @@ WriteMakefile(
         'Net::SSLeay'     => 1.49,
         'JSON::PP'        => 2.27105, # Core since 5.14
     },
-    EXE_FILES => ['script/acne', 'script/acne-init', 'script/acne-new'],
+    EXE_FILES => ['bin/acne'],
     dist  => { COMPRESS => 'bzip2 -9f', SUFFIX => '.bz2', },
     clean => { FILES => 'acne-*' },
 );

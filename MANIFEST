@@ -6,20 +6,16 @@ lib/ACNE/Account.pm
 lib/ACNE/CA.pm
 lib/ACNE/Cert.pm
 lib/ACNE/Common.pm
+lib/ACNE/Cmd/Help.pm
+lib/ACNE/Cmd/Init.pm
+lib/ACNE/Cmd/NewRenew.pm
 lib/ACNE/Crypto/RSA.pm
 lib/ACNE/OpenSSL/RSA.pm
 lib/ACNE/OpenSSL/RSA/FakeNum.pm
 lib/ACNE/Util/File.pm
 lib/ACNE/Validator.pm
 LICENSE
-script/acne
-script/acne-help
-script/acne-init
-script/acne-list
-script/acne-new
-script/acne-remove
-script/acne-renew-auto
-script/acne-revoke
+bin/acne
 Makefile.PL
 MANIFEST			This list of files
 README.md
