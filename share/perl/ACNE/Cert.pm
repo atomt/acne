@@ -54,7 +54,7 @@ sub new {
 		mkdir $dir, 0700;
 	}
 
-	die "certificate ID \"$id\" already exists\n"
+	die "Certificate ID \"$id\" already exists\n"
 	  if -e catfile($dir, 'cert.pem');
 
 	$s;
