@@ -40,6 +40,7 @@ GetOptions(
 ) or die "try acne help\n";
 
 ACNE::Common::config();
+ACNE::Common::drop_privs();
 
 umask 0077;
 chdir catdir(@{$config->{'system'}->{'store'}});

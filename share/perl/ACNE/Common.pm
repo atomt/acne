@@ -132,4 +132,59 @@ sub config {
 	1;
 }
 
+# FIXME too much NIH and maybe bad place
+sub drop_privs {
+	use English qw(-no_match_vars);
+	my $user = $config->{'system'}->{'user'};
+
+	my ($uid, $gid, $home, $shell) = (getpwnam($user))[2,3,7,8];
+	if ( !defined $uid or !defined $gid ) {
+		die "Could not find uid and gid of configured system.user $user\n"
+	}
+	my @gids = getgrouplist($user, $gid);
+
+	# Consider allowing setuid operation later
+	if ( ($UID != 0 and $EUID != 0) and ($UID != $uid and $EUID != $uid) ) {
+		die "Not invoked as either root or configured user - aborting\n";
+	}
+
+	if ( $UID == $uid and $EUID == $uid ) {
+		return;
+	}
+
+	say "Changing to user $user";
+
+	# Actually change, twice, and in a special order, because some
+	# platforms do not close all the doors back to previous uid otherwise
+	($GID) = @gids; $EGID = join(' ', @gids); $EUID = $UID = $uid;
+	($GID) = @gids; $EGID = join(' ', @gids); $EUID = $UID = $uid;
+
+	if ( $UID ne $uid or $EUID ne $uid ) {
+		die "Changing uid to $uid ($user) failed\n";
+	}
+
+	if ( (split(' ', $GID))[0] ne $gid ) {
+		die "Changing gid to $gid failed\n";
+	}
+
+	$ENV{'USER'}    = $user;
+	$ENV{'LOGNAME'} = $user;
+	$ENV{'HOME'}    = $home;
+	$ENV{'SHELL'}   = $shell;
+
+	1;
+}
+
+# Emulate Linux/BSD getgrouplist, slowly, iterating over all groups
+sub getgrouplist {
+	my ($username, $gid) = @_;
+	my @groups = ($gid);
+	while ( my ($name, $comment, $ggid, $rawgroups) = getgrent ) {
+		next if $ggid == $gid;
+		push @groups, $ggid
+		  if grep { $_ eq $username } split /\s/, $rawgroups;
+	}
+	@groups;
+}
+
 1;
