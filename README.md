@@ -28,34 +28,29 @@ Renew all certificates in the store close to their expiry date, using same setti
 Renew "acmetest" certificate regardless of expiry date
 > acne renew acmetest
 
-## Installation
-Set up certificate store, default settings
-> acne init
-
-### Dependencies
-Anything Unixy capable of running Perl 5.14 or later should work. This includes all currently supported platforms I know of.
-
-#### Ubuntu 12.04+, Debian 7+
-> apt-get install libjson-perl libnet-ssleay-perl openssl
-
 ## Configuration
-The configuration file is loaded from /etc/acne/config by default. It is a simple key value file. A minimal configuration would look like this, to set up our certificate/key store and the webserver challenge root.
+The configuration file is loaded from __/etc/acne/config__ by default. It is a simple key value file. A minimal configuration would look like this, to set up the webserver challenge root.
 
-    system.store /var/lib/acne
     challenge.http01fs.acmeroot /srv/web/shared/acme
 
-You probably want to define a contact email for account recovery and such, though.
+Your websites needs to point __/.well-known/acme-challenge/__ to this path for the domain verification to work. In the future, other methods might get supported.
+
+You probably want to define a contact email for account recovery and such.
 
     account.default.email someone@example.com
 
+It's also highly recomended to create a dedicated user for acne, otherwise it will run as root. Hooks will need to keep non-root operation in mind.
+
+    system.user acne
+    
 And to use the non-testing production Let's Encrypt by default (can be overidden with --ca on new)
 
-    defaults.ca         letsencrypt
+    defaults.ca letsencrypt
 
 Full example
 
-    system.store     /var/lib/acne
-    system.user      root
+    system.store  /var/lib/acne
+    system.user   root
     
     account.default.email someone@example.com
     account.default.tel   776-2323
@@ -69,4 +64,14 @@ Full example
     
     challenge.http01fs.acmeroot /srv/web/shared/acme
     
-    ca.internal.host    acme-v1.api.example.com
+    ca.internal.host acme-v1.api.example.com
+
+## Installation
+Set up certificate store, default settings
+> acne init
+
+### Dependencies
+Anything Unixy capable of running Perl 5.14 or later should work. This includes all currently supported platforms I know of.
+
+#### Ubuntu 12.04+, Debian 7+
+> apt-get install libjson-perl libnet-ssleay-perl openssl
