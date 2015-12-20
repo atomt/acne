@@ -20,7 +20,7 @@ sub _new {
 	my $defaults = $config->{'defaults'};
 	$defaults->{for} = [$defaults->{for}]; # FIXME
 	my $combined; { my %tmp = (%$defaults, %$conf); $combined = \%tmp };
-	
+
 	# Make sure CA, account and for is always saved to the cert json
 	# regardless if specified on command line.
 	$conf->{ca}      = $combined->{ca};
@@ -130,10 +130,7 @@ sub issue {
 
 sub domainAuth {
 	my ($s, $acme, $domain) = @_;
-
-	# Perhaps have a challenge hook like the install.d/remove.d ones
-	# -> we could use dns challenges and such as well.
-	my $acme_dir = '/srv/web/shared/acme'; # FIXME read from config
+	my $acmeroot = catdir(@{$config->{'challenge'}->{'http01fs'}->{'acmeroot'}});
 
 	say "Requesting challenges";
 	my @challenges_all = $acme->new_authz($domain);
@@ -149,7 +146,7 @@ sub domainAuth {
 	my $token     = $challenge->{'token'};
 	my $thumb     = $acme->jws->thumbprint;
 	my $keyauth   = $token . '.' . $thumb;
-	my $path      = catfile($acme_dir, $token);
+	my $path      = catfile($acmeroot, $token);
 
 	say "Got challenge from CA, publishing";
 	open my $fh, '>', $path;
@@ -185,7 +182,7 @@ sub csrGenerate {
 	my @dns      = @{$combined->{'dns'}};
 	my $key      = $combined->{'key'};
 	my $roll     = $combined->{'roll-key'};
-	
+
 	# If roll-key = 1, we always generate new key.
 	# if 0, we load the key if we have it, otherwise generate new key.
 	# FIXME not EC aware
