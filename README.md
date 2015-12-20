@@ -1,6 +1,6 @@
 # WARNING
 
-*This is very experimental. Things still change around -a lot-*
+*This is very experimental. Things still change around -a lot-. Some things do not work yet, like hooks and renews. There is a certain amount of Not Invented Here still lurking in the code base and error handling is currently not the greatest*
 
 # acne - a ACME/Let's Encrypt client
 
