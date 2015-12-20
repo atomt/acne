@@ -12,6 +12,8 @@ It supports per certificate settings, like what CA, key parameters and what hook
 
 Some of this is working now; we have a working JWS + ACME client library, we can register accounts, submit domains for authorization, write out challenges and get cert + chain.
 
+Currently during early development the default Certificate Authority is Let's Encrypt Staging, which issues bogus certificates. Set defaults.ca in the configuration file to `letsencrypt` if you want real certificates.
+
 ## Quick start
 
 You probably want to install a couple of dependencies first. We try to keep dependencies down to what's available in distributions supported repositories.
@@ -124,21 +126,40 @@ A very simple hook for nginx would be saved to `/etc/acne/hooks/nginx` and look 
 For install and remove the variables `name`, `cert`, `chain`, `fullchain` and `key` will be set. Except for name, they contain full paths to the respective files in the certificate store. They could be used to copy/remove and/or update server configuration, for example.
 
 ## Configuration
-Full example
 
-    system.store  /var/lib/acne
-    system.user   root
+The configuration file is read from `/etc/acne/config` and is in a fairly simple key value format.
+It will run without one with sensible defaults, however it's highly recommended to add account information as it is used for account recovery if your key is lost.
+
+Where to keep the internal certificate database and other internal data.
+
+    system.store /var/lib/acne
+
+What user we run as, as well as the hooks. If set to a non-root user, and invoked as root, we will drop privileges to this user before doing anything. Run `sudo acne init` after changing this parameter to make sure permissions on `system.store` are updated.
+
+    system.user root
+
+What challenge solving plug-in to use. Currently only http01fs is supported.
+
+    system.challenge http01fs
+
+Where http-01 challenges are written for the Certificate Authority to fetch. Your web server or proxy should point `/.well-known/acme-challenge/` to this local file system directory.
+
+    challenge.http01fs.acmeroot /var/lib/acne/httpchallenge
+
+The contact details is sent to the Certificate Authority and is used for purposes like account recovery if the account key is lost. Multiple accounts are supported, each has its own key.
 
     account.default.email someone@example.com
     account.default.tel   776-2323
 
+Set the default parameters used when creating a new certificate. With the exception of account and ca, these are not sticky - if you change them they will change for existing certificates on renew. Only parameters overridden on the command line sticks regardless of what this configuration sets later on.
+
     defaults.account    default
     defaults.ca         letsencrypt-staging
-    defaults.renew-left 10
+    defaults.renew-left 15
     defaults.roll-key   yes
     defaults.key        rsa:3072
-    defaults.for        space delimeted sets of hooks
+    defaults.for        none # space delimeted sets of hook scripts
 
-    challenge.http01fs.acmeroot /srv/web/shared/acme
+Locally configure alternative Certificate Authorities exposing a ACME API. letsencrypt and letsencrypt-staging comes pre-defined.
 
     ca.internal.host acme-v1.api.example.com
