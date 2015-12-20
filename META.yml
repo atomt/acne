@@ -1,0 +1,54 @@
+---
+abstract: "ACME/Let's Encrypt client"
+author:
+  - 'Andre Tomt <andre@tomt.net>'
+build_requires:
+  Test::More: '0'
+configure_requires:
+  Module::Build: '0'
+dynamic_config: 1
+generated_by: 'Module::Build version 0.4214, CPAN::Meta::Converter version 2.150005'
+license: gpl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: '1.4'
+name: Acne
+provides:
+  ACME::Client:
+    file: lib/ACME/Client.pm
+  ACME::Client::JWS:
+    file: lib/ACME/Client/JWS.pm
+  ACNE:
+    file: lib/ACNE.pm
+    version: '0.01'
+  ACNE::Account:
+    file: lib/ACNE/Account.pm
+  ACNE::CA:
+    file: lib/ACNE/CA.pm
+  ACNE::Cert:
+    file: lib/ACNE/Cert.pm
+  ACNE::Cmd::Help:
+    file: lib/ACNE/Cmd/Help.pm
+  ACNE::Cmd::Init:
+    file: lib/ACNE/Cmd/Init.pm
+  ACNE::Cmd::NewRenew:
+    file: lib/ACNE/Cmd/NewRenew.pm
+  ACNE::Common:
+    file: lib/ACNE/Common.pm
+  ACNE::Crypto::RSA:
+    file: lib/ACNE/Crypto/RSA.pm
+  ACNE::OpenSSL::RSA:
+    file: lib/ACNE/OpenSSL/RSA.pm
+  ACNE::OpenSSL::RSA::FakeNum:
+    file: lib/ACNE/OpenSSL/RSA/FakeNum.pm
+  ACNE::Util::File:
+    file: lib/ACNE/Util/File.pm
+  ACNE::Validator:
+    file: lib/ACNE/Validator.pm
+requires:
+  HTTP::Tiny: '0.012'
+  IO::Socket::SSL: '1.56'
+  JSON::PP: '2.27105'
+  Net::SSLeay: '1.49'
+version: '0.01'
+x_serialization_backend: 'CPAN::Meta::YAML version 0.012'
