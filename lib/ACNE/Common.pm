@@ -76,6 +76,7 @@ my $ca_validator = ACNE::Validator->new(
 # Will be pluginified
 my $challenge_validator = ACNE::Validator->new(
 	'acmeroot' => {
+		default   => ['', 'var', 'lib', 'acne', 'httpchallenge'],
 		validator => [\&ACNE::Validator::PATH]
 	}
 );
@@ -85,7 +86,8 @@ our $config;
 sub config {
 	my @errors;
 	my $fp = catfile(@etcdir, 'config');
-	my ($raw, $err) = ACNE::Util::File::readPairsStruct($fp);
+	my ($raw, $err) = ACNE::Util::File::readPairsStruct($fp)
+	  if -e $fp;
 
 	# Shipped CAs
 	$raw->{'ca'}->{'letsencrypt'}->{'acme-server'} = 'acme-v01.api.letsencrypt.org'
