@@ -114,7 +114,7 @@ A very simple hook for nginx would be saved to `/etc/acne/hooks/nginx` and look 
         # Nothing to be done, we use certs directly from live/ in the cert store.
         exit 0
         ;;
-    postinst|postrm)
+    postinst)
         service nginx reload
         ;;
     esac
