@@ -42,7 +42,7 @@ my $defaults_validator = ACNE::Validator->new(
 		default   => 1,
 		validator => [\&ACNE::Validator::BOOL]
 	},
-	'for'        => {
+	'run'        => {
 		default   => undef,
 		validator => [sub {
 			my @r;
