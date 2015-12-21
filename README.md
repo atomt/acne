@@ -90,7 +90,7 @@ This probably what you actually want, multiple names on a single certificate (SA
 
 Use a non-default set of hooks (remembered for renew)
 
-    acne new example -d example.com -d www.example.com --for nginx --for dovecot
+    acne new example -d example.com -d www.example.com --run nginx --run dovecot
 
 Or use some other configured ACME enabled CA for this one certificate?
 
@@ -106,7 +106,7 @@ Renew "example" certificate regardless of expiry date
 
 ## Hooks
 
-Hooks live in `/etc/acne/hooks/`, as one executable script or binary per hook (see defaults.for and --for). Hooks gets called with a parameter -- install, remove, postinst or postrm.
+Hooks live in `/etc/acne/hooks/`, as one executable script or binary per hook (see defaults.run and --run). Hooks gets called with a parameter -- install, remove, postinst or postrm.
 
 install is called once for each changed certificate, remove on each certificate removed. postinst is called after all installs have been processed and postrm likewise for removals.
 
@@ -160,7 +160,7 @@ Set the default parameters used when creating a new certificate. With the except
     defaults.renew-left 15
     defaults.roll-key   yes
     defaults.key        rsa:3072
-    defaults.for        none # space delimeted sets of hook scripts
+    defaults.run        none # space delimeted sets of hook scripts
 
 Locally configure alternative Certificate Authorities exposing a ACME API. letsencrypt and letsencrypt-staging comes pre-defined.
 

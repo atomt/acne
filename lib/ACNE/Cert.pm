@@ -25,7 +25,7 @@ sub _new {
 	# regardless if specified on command line.
 	$conf->{ca}      = $combined->{ca};
 	$conf->{account} = $combined->{account};
-	$conf->{for}     = $combined->{for};
+	$conf->{run}     = $combined->{run};
 
 	bless {
 	  id       => $id,
@@ -45,7 +45,7 @@ sub new {
 	while ( my($key, $val) = each %$conf ) {
 		delete $conf->{$key} if !defined $val;
 	}
-	delete $conf->{'for'} if @{$conf->{'for'}} == 0;
+	delete $conf->{'run'} if @{$conf->{'run'}} == 0;
 
 	my $s = _new(@_);
 	my $dir = $s->{'dir'};

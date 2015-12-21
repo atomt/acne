@@ -19,7 +19,7 @@ sub run {
 
 	my (
 	  @arg_dns,
-	  @arg_for,
+	  @arg_run,
 	  $arg_ca,
 	  $arg_key,
 	  $arg_roll_key,
@@ -29,7 +29,7 @@ sub run {
 
 	GetOptions(
 	  'dns=s'      => \@arg_dns,
-	  'for=s'      => \@arg_for,
+	  'run=s'      => \@arg_run,
 	  'ca=s'       => \$arg_ca,
 	  'key=s'      => \$arg_key,
 	  'roll-key!'  => \$arg_roll_key,
@@ -44,7 +44,7 @@ sub run {
 
 	my $cert = ACNE::Cert->new($id, {
 	  'dns'        => \@arg_dns,
-	  'for'        => \@arg_for,
+	  'run'        => \@arg_run,
 	  'ca'         => $arg_ca,
 	  'key'        => $arg_key,
 	  'roll-key'   => $arg_roll_key,
