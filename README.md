@@ -14,7 +14,7 @@ Some of this is working now; we have a working JWS + ACME client library, we can
 
 Currently during early development the default Certificate Authority is Let's Encrypt Staging, which issues bogus certificates. Set defaults.ca in the configuration file to `letsencrypt` if you want real certificates.
 
-## Quick start
+## Installation
 
 You probably want to install a couple of dependencies first. We try to keep dependencies down to what's available in distributions supported repositories.
 
@@ -30,6 +30,8 @@ To install it from source, unpacked tarball or a git clone, run
     sudo acne init
 
 This will install it into `/usr/local` on most systems with configuration in `/etc/acne` and its internal certificate database in `/var/lib/acne`. `acne init` sets up the certificate database directory.
+
+## Quick start
 
 Currently only local file system based http-01 challenge is supported, so make sure your web server points `/.well-known/acme-challenge/` to the local directory `/var/lib/acne/httpchallenge` for all the virtual hosts you want to set up certificates for.
 
