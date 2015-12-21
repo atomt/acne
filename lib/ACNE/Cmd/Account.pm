@@ -14,12 +14,12 @@ use Getopt::Long;
 # acne account <ca> --accept-tos
 sub run {
     my $cmd   = shift @ARGV;
-    my $ca_id = shift @ARGV;
 
     my $accept_tos;
     GetOptions(
   	  'accept-tos=s' => \$accept_tos
     ) or usage(1);
+    my $ca_id = shift @ARGV;
 
     ACNE::Common::config();
     ACNE::Common::drop_privs();
