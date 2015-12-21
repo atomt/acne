@@ -56,6 +56,10 @@ The configuration file is loaded from `/etc/acne/config`. It will run fine witho
 
 See `/etc/acne/config.sample` for more options.
 
+Register account at the Certificate Authority. If the authority requires you to accept a Terms of Service, the client will supply further directions.
+
+    sudo acne account
+
 If everything is in order, you should be able to request a certificate, a -d for each domain name you want to include.
 
     sudo acne new example -d example.com -d www.example.com
