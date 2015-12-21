@@ -16,9 +16,6 @@ sub run {
     my $cmd   = shift @ARGV;
     my $ca_id = shift @ARGV;
 
-    die "CA argument is missing\n"
-      if !defined $ca_id;
-
     my $accept_tos;
     GetOptions(
   	  'accept-tos=s' => \$accept_tos
@@ -26,6 +23,10 @@ sub run {
 
     ACNE::Common::config();
     ACNE::Common::drop_privs();
+
+    if ( !defined $ca_id ) {
+      $ca_id = $config->{'defaults'}->{'ca'};
+    }
 
     my $account = ACNE::Account->new;
     my $ca      = ACNE::CA->new($ca_id, $account->keyInit);
