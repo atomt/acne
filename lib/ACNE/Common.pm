@@ -34,10 +34,6 @@ my $defaults_validator = ACNE::Validator->new(
 		default   => 'letsencrypt-staging',
 		validator => [\&ACNE::Validator::WORD]
 	},
-	'account'    => {
-		default   => 'default',
-		validator => [\&ACNE::Validator::WORD]
-	},
 	'key'        => {
 		default   => 'rsa:3072',
 		validator => [\&ACNE::Validator::REGEX, qr/^(rsa:\w+)$/]
@@ -95,10 +91,6 @@ sub config {
 	$raw->{'ca'}->{'letsencrypt-staging'}->{'acme-server'} = 'acme-staging.api.letsencrypt.org'
 	  if !exists $raw->{'ca'}->{'letsencrypt-staging'}->{'acme-server'};
 
-	# Default empty subgroups
-	$raw->{'account'}->{'default'} = {}
-	  if !exists $raw->{'account'}->{'default'};
-
 	# Verify each grouping and remove when done, if we have any left at the end, bail.
 	($config->{'system'}, $err) = $system_validator->process(delete $raw->{'system'});
 	push @errors, "in system section\n", @$err if $err;
@@ -106,19 +98,15 @@ sub config {
 	($config->{'defaults'}, $err) = $defaults_validator->process(delete $raw->{'defaults'});
 	push @errors, "in section \"default\"\n", @$err if $err;
 
+	($config->{'account'}, $err) = $account_validator->process(delete $raw->{'account'});
+	push @errors, "in section \"account\"\n", @$err if $err;
+
 	$config->{'ca'} = {};
 	while ( my ($k, $v) = each %{$raw->{'ca'}} ) {
 		($config->{'ca'}->{$k}, $err) = $ca_validator->process(delete $raw->{'ca'}->{$k});
 		push @errors, "in section \"ca\"\n", @$err if $err;
 	}
 	delete $raw->{'ca'};
-
-	$config->{'account'} = {};
-	while ( my ($k, $v) = each %{$raw->{'account'}} ) {
-		($config->{'account'}->{$k}, $err) = $account_validator->process(delete $raw->{'account'}->{$k});
-		push @errors, "in section \"account\"\n", @$err if $err;
-	}
-	delete $raw->{'account'};
 
 	# for now challenge.http01fs is hardcoded
 	($config->{'challenge'}->{'http01fs'}, $err) = $challenge_validator->process(delete $raw->{'challenge'}->{'http01fs'});

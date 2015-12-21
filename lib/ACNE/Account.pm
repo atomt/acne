@@ -12,14 +12,13 @@ use ACNE::Crypto::RSA;
 use File::Spec::Functions qw(catdir catfile);
 
 sub new {
-	my ($class, $id) = @_;
+	my ($class) = @_;
 
-	my $conf = $config->{'account'}->{$id}
-	  or die "Specified account \"$id\" has no valid configuration\n";
+	my $conf = $config->{'account'}
+	  or die "Specified account has no valid configuration\n";
 
 	my $s = bless {
-	  id   => $id,
-	  dir  => catdir(@{$config->{'system'}->{'store'}}, 'account', $id),
+	  dir  => catdir(@{$config->{'system'}->{'store'}}, 'account', 'default'),
 	  conf => $conf,
 	  pkey => undef
 	} => $class;

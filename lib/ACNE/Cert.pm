@@ -21,11 +21,10 @@ sub _new {
 	$defaults->{for} = [$defaults->{for}]; # FIXME
 	my $combined; { my %tmp = (%$defaults, %$conf); $combined = \%tmp };
 
-	# Make sure CA, account and for is always saved to the cert json
-	# regardless if specified on command line.
-	$conf->{ca}      = $combined->{ca};
-	$conf->{account} = $combined->{account};
-	$conf->{run}     = $combined->{run};
+	# Make sure CA and run is always saved to the cert json  regardless if
+	# specified on command line.
+	$conf->{ca}  = $combined->{ca};
+	$conf->{run} = $combined->{run};
 
 	bless {
 	  id       => $id,
@@ -238,7 +237,6 @@ sub csrGenerate {
 
 sub getId        { $_[0]->{'id'}; };
 sub getCAId      { $_[0]->{'combined'}->{'ca'}; }
-sub getAccountId { $_[0]->{'combined'}->{'account'}; }
 sub getKeyConf   { $_[0]->{'combined'}->{'key'}; }
 sub getRollKey   { $_[0]->{'combined'}->{'roll-key'}; }
 

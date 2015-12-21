@@ -148,14 +148,13 @@ Where http-01 challenges are written for the Certificate Authority to fetch. You
 
     challenge.http01fs.acmeroot /var/lib/acne/httpchallenge
 
-The contact details is sent to the Certificate Authority and is used for purposes like account recovery if the account key is lost. Multiple accounts are supported, each has its own key.
+The contact details is sent to the Certificate Authority and is used for purposes like account recovery if the account key is lost.
 
-    account.default.email someone@example.com
-    account.default.tel   776-2323
+    account.email someone@example.com
+    account.tel   776-2323
 
 Set the default parameters used when creating a new certificate. With the exception of account and ca, these are not sticky - if you change them they will change for existing certificates on renew. Only parameters overridden on the command line sticks regardless of what this configuration sets later on.
 
-    defaults.account    default
     defaults.ca         letsencrypt-staging
     defaults.renew-left 15
     defaults.roll-key   yes
