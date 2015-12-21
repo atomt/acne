@@ -59,26 +59,107 @@ sub keyInit {
 # If this account is marked registered for specified CA
 sub registered {
 	my ($s, $ca, $ca_id) = @_;
-	-e catfile($s->{'dir'}, 'registered.' . $ca_id);
+	my $dir = $s->{'dir'};
+	my $tosp_fp = catfile($dir, 'tospending.' . $ca_id);
+	my $loc_fp  = catfile($dir, 'location.'   . $ca_id);
+
+	if ( -e $tosp_fp ) {
+		my $tos = do { local $/; open my $fh, '<', $tosp_fp; <$fh> };
+		say '';
+		say 'Terms of Service is pending acceptance for this Certificate Authority';
+		say "Please review $tos";
+		say '';
+		say "Approve it using this command: acne account $ca_id --accept-tos <the URI above>";
+		say 'before issuing any certificates using this authority';
+		say '';
+		return;
+	}
+
+	if ( ! -e $loc_fp ) {
+		say '';
+		say 'Account has not been registered with this Certificate Authority';
+		say "Use this command to register: acne account $ca_id";
+		say '';
+
+		return;
+	}
+
+	1;
 }
 
 # Register account at CA
 sub register {
 	my ($s, $ca, $ca_id) = @_;
-	my $dir   = $s->{'dir'};
-	my $email = $s->{'conf'}->{'email'};
+	my $dir     = $s->{'dir'};
+	my $tosp_fp = catfile($dir, 'tospending.' . $ca_id);
+	my $loc_fp  = catfile($dir, 'location.'   . $ca_id);
+	my $conf    = $s->{'conf'};
+	my $email   = $conf->{'email'};
+	my $tel     = $conf->{'tel'};
 
-	my $contact;
-	if ( $email ) {
-		$contact = [ 'mailto:' . $email ];
+  # Previous run registered that a TOS has to be accepted
+	if ( -e $tosp_fp ) {
+		my $tos = do { local $/; open my $fh, '<', $tosp_fp; <$fh> };
+		say '';
+		say 'Terms of Service is pending acceptance for this Certificate Authority';
+		say "Please review $tos";
+		say '';
+		say "Approve it using this command: acne account $ca_id --accept-tos <the URI above>";
+		say 'before issuing any certificates using this authority';
+		say '';
+		return;
 	}
 
-	$ca->new_reg(
-		'agreement' => 'https://letsencrypt.org/documents/LE-SA-v1.0.1-July-27-2015.pdf',
-		'contact'   => $contact
-	);
+	# Already registered
+	#if ( -e $loc_fp ) {
+	#	return 1;
+	#}
 
-	ACNE::Util::File::touch(catfile($dir, 'registered.' . $ca_id));
+	# CA request
+	my ($location, $toslocation) = $ca->new_reg(email => $email, tel => $tel);
+
+	# Record account location, also serves as a registered flag
+	open my $loc_fh, '>', $loc_fp;
+	print $loc_fh $location;
+
+	if ( $toslocation ) {
+		open my $tos_fh, '>', $tosp_fp;
+		print $tos_fh $toslocation;
+		say '';
+		say 'Certificate Authority requested acceptance of a Terms of Service located at';
+		say $toslocation;
+		say '';
+		say "Approve it using: acne account $ca_id --accept-tos <the URI above>";
+		say "before issuing any certificates using this authority";
+		say '';
+
+		return;
+	}
+
+	1;
+}
+
+sub accept_tos {
+	my ($s, $ca, $ca_id, $uri) = @_;
+	my $dir     = $s->{'dir'};
+	my $tosp_fp = catfile($dir, 'tospending.' . $ca_id);
+	my $tos_fp  = catfile($dir, 'tos.'        . $ca_id);
+	my $loc_fp  = catfile($dir, 'location.'   . $ca_id);
+	my $conf    = $s->{'conf'};
+	my $email   = $conf->{'email'};
+	my $tel     = $conf->{'tel'};
+
+#	my $tos = do { local $/; open my $fh, '<', $tosp_fp; <$fh> };
+	my $loc = do { local $/; open my $fh, '<', $loc_fp; <$fh> };
+
+	$ca->reg($loc, email => $email, tel => $tel, agreement => $uri);
+
+	say '';
+	say 'Status of Terms of Service agreement updated at Certificate Authority';
+	say '';
+
+	rename $tosp_fp, $tos_fp
+	  if -e $tosp_fp;
 }
 
 1;

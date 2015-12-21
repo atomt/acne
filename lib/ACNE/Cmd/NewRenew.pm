@@ -60,12 +60,11 @@ sub run {
 	my $account = ACNE::Account->new;
 	my $ca = ACNE::CA->new($ca_id, $account->keyInit);
 
-	# Register account
-	$account->register($ca, $ca_id)
-	  if !$account->registered($ca, $ca_id);
+	if ( !$account->registered($ca, $ca_id) ) {
+		exit 1;
+	}
 
 	$cert->issue($ca);
-
 	$cert->save;
 }
 

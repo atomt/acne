@@ -53,6 +53,9 @@
       "ACNE::Cert" : {
          "file" : "lib/ACNE/Cert.pm"
       },
+      "ACNE::Cmd::Account" : {
+         "file" : "lib/ACNE/Cmd/Account.pm"
+      },
       "ACNE::Cmd::Help" : {
          "file" : "lib/ACNE/Cmd/Help.pm"
       },

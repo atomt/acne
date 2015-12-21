@@ -10,6 +10,7 @@ my $cmd = $ARGV[0];
 
 my %commands = (
 	'init'       => 'ACNE::Cmd::Init',
+	'account'    => 'ACNE::Cmd::Account',
 	'new'        => 'ACNE::Cmd::NewRenew',
 	'help'       => 'ACNE::Cmd::Help',
 	'renew'      => 'ACNE::Cmd::NewRenew',

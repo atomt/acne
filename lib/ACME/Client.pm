@@ -78,34 +78,60 @@ sub _update_nonce {
 
 sub new_reg {
 	my ($s, %args) = @_;
+	my $email = $args{'email'};
+	my $tel   = $args{'tel'};
 
-	my $contact   = $args{'contact'};
-	my $agreement = $args{'agreement'};
+	my @contact;
+	push @contact, 'email:' . $email if defined $email;
+	push @contact, 'tel:' . $tel     if defined $tel;
 
-	my $req = {
-		'resource'  => 'new-reg',
-		'agreement' => $agreement
-	};
-	if ( $contact ) {
-		$req->{'contact'} = $contact;
+  my $req = { 'resource' => 'new-reg' };
+	if ( @contact ) {
+		$req->{'contact'} = \@contact;
 	}
 
 	my $r = $s->_post($s->directory('new-reg'), $req);
+	my $tos = do { my $links = _links($r->{'headers'}); $links->{'terms-of-service'} };
+	my $loc = $r->{'headers'}->{'location'};
 
-	my $ret;
 	if ( $r->{'status'} == 201 ) {
 		say 'Account successfully created';
-		$ret = 1;
 	}
 	elsif ( $r->{'status'} == 409 ) {
 		say 'Account already registered';
-		$ret = 2;
 	}
 	else {
 		die "Error registering: $r->{status} $r->{reason}\n";
 	}
 
-	$ret;
+	($loc, $tos);
+}
+
+sub reg {
+	my ($s, $uri, %args) = @_;
+	my $email     = $args{'email'};
+	my $tel       = $args{'tel'};
+	my $agreement = $args{'agreement'};
+
+	my @contact;
+	push @contact, 'email:' . $email if defined $email;
+	push @contact, 'tel:' . $tel     if defined $tel;
+
+	my $req = { 'resource' => 'reg' };
+	if ( @contact ) {
+		$req->{'contact'} = \@contact;
+	}
+	if ( defined $agreement ) {
+		$req->{'agreement'} = $agreement;
+	}
+
+	my $r = $s->_post($uri, $req);
+
+	if ( $r->{'status'} != 202 ) {
+		die "Error updating: $r->{status} $r->{reason}\n";
+	}
+
+	1;
 }
 
 sub new_authz {

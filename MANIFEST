@@ -8,6 +8,7 @@ lib/ACNE.pm
 lib/ACNE/Account.pm
 lib/ACNE/CA.pm
 lib/ACNE/Cert.pm
+lib/ACNE/Cmd/Account.pm
 lib/ACNE/Cmd/Help.pm
 lib/ACNE/Cmd/Init.pm
 lib/ACNE/Cmd/NewRenew.pm
