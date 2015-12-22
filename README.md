@@ -52,7 +52,7 @@ And in each server block include it like so
 
 The configuration file is loaded from `/etc/acne/config`. It will run fine without it, but its highly recommended to at least specify a contact email address for the default account as it is used for account recovery.
 
-    account.default.email someone@example.com
+    account.email someone@example.com
 
 See `/etc/acne/config.sample` for more options.
 
