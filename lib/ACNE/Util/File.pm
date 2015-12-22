@@ -17,10 +17,15 @@ sub readJSON {
 	do { local $/; decode_json(<$fh>) };
 }
 
-sub writeJSON {
+sub writeJSON { writeStr(encode_json($_[0]), $_[1]) }
+
+sub writeStr {
 	my ($data, $path) = @_;
-	open my $fh, '>', $path;
-	print $fh encode_json($data);
+	my $tmp = $path . '.tmp'; # FIXME, use a random hidden file
+	open my $fh, '>', $tmp;
+	print $fh $data;
+	undef $fh;
+	rename $tmp, $path;
 }
 
 sub readPairsStruct {
