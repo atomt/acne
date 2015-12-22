@@ -50,7 +50,7 @@ And in each server block include it like so
         include "/etc/nginx/acne.conf";
     }
 
-The configuration file is loaded from `/etc/acne/config`. It will run fine without it, but its highly recommended to at least specify a contact email address for the default account as it is used for account recovery.
+The configuration file is loaded from `/etc/acne/config`. It will run fine without it, but its highly recommended to at least specify a contact email address for the account as it is used for account recovery.
 
     account.email someone@example.com
 
