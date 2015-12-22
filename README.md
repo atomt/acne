@@ -8,11 +8,9 @@ Acne is a ACME client that manages keys and certificates for you, but little els
 
 When certificates change it can call out to a set of hook scripts. These will usually just reload the needed daemons, but can also be used to install the certificates in other locations, invoke a configuration management system, or something else entirely.
 
-It supports per certificate settings, like what CA, key parameters and what hooks to invoke, which will be preserved for automatic and manual renews. You could have some certificates issued from an internal PKI, and others from Let's Encrypt, for example, or using different accounts.
+It supports per certificate settings, like what CA, key parameters and what hooks to invoke, which will be preserved for automatic and manual renews. You could have some certificates issued from an internal PKI, and others from Let's Encrypt for example.
 
 Some of this is working now; we have a working JWS + ACME client library, we can register accounts, submit domains for authorization, write out challenges and get cert + chain.
-
-Currently during early development the default Certificate Authority is Let's Encrypt Staging, which issues bogus certificates. Set defaults.ca in the configuration file to `letsencrypt` if you want real certificates.
 
 ## Installation
 
@@ -32,6 +30,8 @@ To install it from source, unpacked tarball or a git clone, run
 This will install it into `/usr/local` on most systems with configuration in `/etc/acne` and its internal certificate database in `/var/lib/acne`. `acne init` sets up the certificate database directory.
 
 ## Quick start
+
+*THIS EARLY IN DEVELOPMENT WE DEFAULT TO USING THE LET'S ENCRYPT STAGING API. THIS API DO NOT ISSUE GLOBALLY TRUSTED CERTIFICATES. SET defaults.ca letsencrypt IN THE CONFIGURATION FILE OR USE --ca letsencrypt FOR acne new TO GET PROPER CERTIFICATES*
 
 We'll use nginx as the example here. It's fairly straight forward to adapt it to other web servers and services.
 
@@ -81,7 +81,7 @@ If everything is in order, you should be able to request a certificate, a -d for
 
 And it should show up under `/var/lib/acne/live/example/` as `cert.pem`, `chain.pem`, `fullchain.pem` and `key.pem`. Then it's just a matter of pointing the service to the correct files.
 
-Make your system run `acne renew-auto` on a daily or weekly basis. This will auto-renew certificates that are close to their expiry.
+Make your system run `acne renew-auto` on a daily or weekly basis. This will auto-renew certificates that are close to their expiry. Any problems will go out to standard error.
 
 ## Security
 
@@ -97,33 +97,32 @@ Then it's safe to invoke it as either root or this user directly. If invoked as 
 
 Your hook script(s) will have to take non-root operation into consideration for this to work smoothly.
 
-## Basic usage
+## Command line usage
 
-Create a new "example" entry in our store and get a certificate for name "example.com"
+    acne account [ca]
 
-    acne new example -d example.com
+Creates or update account at the Certificate Authority. ca parameter is optional, the default authority will be used if omitted.
 
-This probably what you actually want, multiple names on a single certificate (SANs)
+    acne new example -d hostname1 [-d hostname2 ..] [--run hook ..] [--ca name]
+      [--key keyspec] [--no-roll-key] [--renew-left DAYS]
+
+Creates a new entry in our database called `example` with the specified settings if any and request/install the certificate.
 
     acme new example -d example.com -d www.example.com
 
-Use a non-default set of hooks (remembered for renew)
-
-    acne new example -d example.com -d www.example.com --run nginx --run dovecot
-
-Or use some other configured ACME enabled CA for this one certificate?
-
-    acne new example -d example.com -d www.example.com --ca notletsencrypt
-
-Renew all certificates in the store close to their expiry date, using same settings specified when created, including what hooks, CA and so on.
-
-    acne renew-auto
-
-Renew "example" certificate regardless of expiry date
+This probably what you actually want, multiple names on a single certificate (SANs)
 
     acne renew example
 
+Renew the certificate of entry `example` regardless of expiry date using same settings specified when created, including what hooks, CA and so on. *NOT WORKING YET*
+
+    acne renew-auto
+
+Renew all certificates in the store close to their expiry date. *NOT WORKING YET*
+
 ## Hooks
+
+*NOT WORKING YET*
 
 Hooks live in `/etc/acne/hooks/`, as one executable script or binary per hook (see defaults.run and --run). Hooks gets called with a parameter -- install, remove, postinst or postrm.
 
