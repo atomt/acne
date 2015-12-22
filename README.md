@@ -16,7 +16,7 @@ Currently during early development the default Certificate Authority is Let's En
 
 ## Installation
 
-You probably want to install a couple of dependencies first. We try to keep dependencies down to what's available in distributions supported repositories.
+You probably want to install a couple of dependencies first. We limit our dependencies to what is available in distributions security supported repositories.
 
 For Ubuntu, Debian and their derivatives, the following should be sufficient
 
@@ -32,6 +32,8 @@ To install it from source, unpacked tarball or a git clone, run
 This will install it into `/usr/local` on most systems with configuration in `/etc/acne` and its internal certificate database in `/var/lib/acne`. `acne init` sets up the certificate database directory.
 
 ## Quick start
+
+We'll use nginx as the example here. It's fairly straight forward to adapt it to other web servers and services.
 
 Currently only local file system based http-01 challenge is supported, so make sure your web server points `/.well-known/acme-challenge/` to the local directory `/var/lib/acne/httpchallenge` for all the virtual hosts you want to set up certificates for.
 
@@ -50,9 +52,22 @@ And in each server block include it like so
         include "/etc/nginx/acne.conf";
     }
 
-The configuration file is loaded from `/etc/acne/config`. It will run fine without it, but its highly recommended to at least specify a contact email address for the account as it is used for account recovery.
+Set up a simple hook to reload nginx when certificates change. Save it to `/etc/acne/hooks/nginx` and make it executable.
 
-    account.email someone@example.com
+    #!/bin/sh -e
+    case "$1" in
+    postinst)
+        service nginx reload
+        ;;
+    esac
+
+    exit 0
+
+The configuration file is loaded from `/etc/acne/config`. It will run fine without it, however we will make `acne new` and `acne renew` run the nginx hook by default. Otherwise no hooks will be run by default.
+
+    defaults.run nginx
+
+What set of hooks to run can be overridden per certificate on the command line by using one or more --run parameters, which will then be saved for future automatic use by renew and renew-auto.
 
 See `/etc/acne/config.sample` for more options.
 
