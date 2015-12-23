@@ -66,6 +66,7 @@ sub run {
 
 	$cert->issue($ca);
 	$cert->save;
+	ACNE::Cert::_runpostinst();
 }
 
 1;
