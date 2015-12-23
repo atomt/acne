@@ -13,9 +13,8 @@ use File::Spec::Functions qw(catdir catfile);
 
 sub new {
 	my ($class) = @_;
-
 	my $conf = $config->{'account'}
-	  or die "Specified account has no valid configuration\n";
+	  or die "Account has no valid configuration\n";
 
 	my $s = bless {
 	  dir  => catdir(@{$config->{'system'}->{'store'}}, 'account', 'default'),
@@ -56,12 +55,16 @@ sub keyInit {
 	$pkey;
 }
 
+sub _registered {
+	my ($s, $ca_id) = @_;
+	-e catfile($s->{'dir'}, 'location.'   . $ca_id);
+}
+
 # If this account is marked registered for specified CA
 sub registered {
-	my ($s, $ca, $ca_id) = @_;
+	my ($s, $ca_id) = @_;
 	my $dir = $s->{'dir'};
 	my $tosp_fp = catfile($dir, 'tospending.' . $ca_id);
-	my $loc_fp  = catfile($dir, 'location.'   . $ca_id);
 
 	if ( -e $tosp_fp ) {
 		my $tos = do { local $/; open my $fh, '<', $tosp_fp; <$fh> };
@@ -75,7 +78,7 @@ sub registered {
 		return;
 	}
 
-	if ( ! -e $loc_fp ) {
+	if ( ! $s->_registered($ca_id) ) {
 		say '';
 		say 'Account has not been registered with this Certificate Authority';
 		say "Use this command to register: acne account $ca_id";
@@ -88,39 +91,20 @@ sub registered {
 }
 
 # Register account at CA
-sub register {
+sub ca_register {
 	my ($s, $ca, $ca_id) = @_;
 	my $dir     = $s->{'dir'};
-	my $tosp_fp = catfile($dir, 'tospending.' . $ca_id);
+	my $tosp_fp = catfile($dir, 'agreement.pending.' . $ca_id);
 	my $loc_fp  = catfile($dir, 'location.'   . $ca_id);
 	my $conf    = $s->{'conf'};
 	my $email   = $conf->{'email'};
 	my $tel     = $conf->{'tel'};
 
-  # Previous run registered that a TOS has to be accepted
-	if ( -e $tosp_fp ) {
-		my $tos = do { local $/; open my $fh, '<', $tosp_fp; <$fh> };
-		say '';
-		say 'Terms of Service is pending acceptance for this Certificate Authority';
-		say "Please review $tos";
-		say '';
-		say "Approve it using this command: acne account $ca_id --accept-tos <the URI above>";
-		say 'before issuing any certificates using this authority';
-		say '';
-		return;
-	}
-
-	# Already registered
-	#if ( -e $loc_fp ) {
-	#	return 1;
-	#}
-
 	# CA request
 	my ($location, $toslocation) = $ca->new_reg(email => $email, tel => $tel);
 
 	# Record account location, also serves as a registered flag
-	open my $loc_fh, '>', $loc_fp;
-	print $loc_fh $location;
+	ACNE::Util::File::writeStr($location, $loc_fp);
 
 	if ( $toslocation ) {
 		open my $tos_fh, '>', $tosp_fp;
@@ -139,27 +123,44 @@ sub register {
 	1;
 }
 
-sub accept_tos {
-	my ($s, $ca, $ca_id, $uri) = @_;
+sub ca_update {
+	my ($s, $ca, $ca_id, $agreement) = @_;
 	my $dir     = $s->{'dir'};
-	my $tosp_fp = catfile($dir, 'tospending.' . $ca_id);
-	my $tos_fp  = catfile($dir, 'tos.'        . $ca_id);
-	my $loc_fp  = catfile($dir, 'location.'   . $ca_id);
 	my $conf    = $s->{'conf'};
 	my $email   = $conf->{'email'};
 	my $tel     = $conf->{'tel'};
 
-#	my $tos = do { local $/; open my $fh, '<', $tosp_fp; <$fh> };
+	# Find update URI created during ca_register
+	my $loc_fp  = catfile($dir, 'location.'   . $ca_id);
 	my $loc = do { local $/; open my $fh, '<', $loc_fp; <$fh> };
 
-	$ca->reg($loc, email => $email, tel => $tel, agreement => $uri);
+	# Find agreement.ca_id
+	# indicates prior agreement accepted by both user and CA
+	my $tos_fp  = catfile($dir, 'agreement.' . $ca_id);
+	my $tosp_fp = catfile($dir, 'agreement.pending.' . $ca_id);
+	my $tos;
+	if ( defined $agreement ) {
+		$tos = $agreement;
+	}
+	elsif ( -e $tos_fp ) {
+		$tos = do { local $/; open my $fh, '<', $tos_fp; <$fh> };
+	}
+
+	$ca->reg($loc,
+	  agreement => $tos,
+	  email     => $email,
+	  tel       => $tel
+	);
+
+	# Update accepted agreement
+	if ( $agreement ) {
+		ACNE::Util::File::writeStr($agreement, $tos_fp);
+		unlink $tosp_fp if -e $tosp_fp;
+	}
 
 	say '';
-	say 'Status of Terms of Service agreement updated at Certificate Authority';
+	say 'Account updated at authority ', $ca_id;
 	say '';
-
-	rename $tosp_fp, $tos_fp
-	  if -e $tosp_fp;
 }
 
 1;

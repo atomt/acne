@@ -61,7 +61,7 @@ sub run {
 	my $account = ACNE::Account->new;
 	my $ca = ACNE::CA->new($ca_id, $account->keyInit);
 
-	if ( !$account->registered($ca, $ca_id) ) {
+	if ( !$account->registered($ca_id) ) {
 		exit 1;
 	}
 

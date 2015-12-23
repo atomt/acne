@@ -10,13 +10,20 @@ use ACNE::Account;
 
 use Getopt::Long;
 
+# Automatic mode: Register if new, update otherwise
 # acne account <ca>
-# acne account <ca> --accept-tos
+#
+# Force registration even if we thing we're registered
+# acne account <ca> --register
+#
+# Accept CA ToS - basicly an update
+# acne account <ca> --accept-tos <url>
 sub run {
     my $cmd   = shift @ARGV;
 
-    my $accept_tos;
+    my ($register, $accept_tos);
     GetOptions(
+      'register'     => \$register,
   	  'accept-tos=s' => \$accept_tos
     ) or usage(1);
     my $ca_id = shift @ARGV;
@@ -31,12 +38,21 @@ sub run {
     my $account = ACNE::Account->new;
     my $ca      = ACNE::CA->new($ca_id, $account->keyInit);
 
-    if ( !$accept_tos ) {
-      $account->register($ca, $ca_id);
+    # Register if not registered or --register set
+    if ( !$account->_registered($ca_id) or $register ) {
+        $account->ca_register($ca, $ca_id);
+
+        # Send an update with ToS if requested
+        if ( $accept_tos ) {
+            $account->ca_update($ca, $ca_id, $accept_tos);
+        }
     }
+    # Update
     else {
-      $account->accept_tos($ca, $ca_id, $accept_tos);
+        $account->ca_update($ca, $ca_id, $accept_tos);
     }
+
+    1;
 }
 
 sub usage {

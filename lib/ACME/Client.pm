@@ -82,10 +82,10 @@ sub new_reg {
 	my $tel   = $args{'tel'};
 
 	my @contact;
-	push @contact, 'email:' . $email if defined $email;
-	push @contact, 'tel:' . $tel     if defined $tel;
+	push @contact, 'mailto:' . $email if defined $email;
+	push @contact, 'tel:' . $tel      if defined $tel;
 
-  my $req = { 'resource' => 'new-reg' };
+	my $req = { 'resource' => 'new-reg' };
 	if ( @contact ) {
 		$req->{'contact'} = \@contact;
 	}
@@ -114,7 +114,7 @@ sub reg {
 	my $agreement = $args{'agreement'};
 
 	my @contact;
-	push @contact, 'email:' . $email if defined $email;
+	push @contact, 'mailto:' . $email if defined $email;
 	push @contact, 'tel:' . $tel     if defined $tel;
 
 	my $req = { 'resource' => 'reg' };
@@ -126,9 +126,14 @@ sub reg {
 	}
 
 	my $r = $s->_post($uri, $req);
+	my $status = $r->{'status'};
 
-	if ( $r->{'status'} != 202 ) {
-		die "Error updating: $r->{status} $r->{reason}\n";
+	if ( $status == 400 ) {
+		my $data = decode_json($r->{'content'});
+		die "Update rejected by authority:\n", $data->{'detail'}, "\n";
+	}
+	elsif ( $status != 202 ) {
+		die "Error updating: $status $r->{reason}\n";
 	}
 
 	1;
