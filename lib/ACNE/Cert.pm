@@ -10,8 +10,10 @@ use ACNE::Util::File;
 use ACNE::Crypto::RSA;
 
 use HTTP::Tiny;
+use File::Path qw(make_path);
 use File::Spec::Functions qw(catdir catfile);
 use IPC::Open3;
+use Digest::SHA qw(sha256_hex);
 
 sub _new {
 	my ($class, $id, $conf) = @_;
@@ -31,6 +33,7 @@ sub _new {
 	  dir      => catdir(@{$config->{'system'}->{'store'}}, 'cert', $id),
 	  conf     => $conf,
 	  chain    => undef,
+	  pkey     => undef,
 	  defaults => $defaults,
 	  combined => $combined
 	} => $class;
@@ -61,9 +64,10 @@ sub new {
 
 # Load config from db and return new object
 # FIXME allow for setting new key, for and renew parameters
+# FIXME use configured store...
 sub load {
 	my ($class, $id) = @_;
-	my $conf_fp = catfile(@ACNE::Common::libdir, 'cert', $id, 'config.json');
+	my $conf_fp = catfile(@{$config->{'system'}->{'store'}}, 'cert', $id, 'config.json');
 	_new(@_, ACNE::Util::File::readJSON($conf_fp));
 }
 
@@ -75,36 +79,75 @@ sub save {
 	my @chain = @{$s->{'chain'}};
 
 	my $conf_fp      = catfile($dir, 'config.json');
-	my $key_new_fp   = catfile($dir, 'new-key.pem');
-	my $key_fp       = catfile($dir, 'key.pem');
+	my $chain_fp     = catfile($dir, 'chain.json');
 	my $oconf_new_fp = catfile($dir, 'new-csr.conf');
 	my $oconf_fp     = catfile($dir, 'csr.conf');
-	my $fullchain_fp = catfile($dir, 'fullchain.pem');
-	my $chain_fp     = catfile($dir, 'chain.pem');
-	my $cert_fp      = catfile($dir, 'cert.pem');
+	my $key_new_fp   = catfile($dir, 'new-key.pem');
+	my $key_fp       = catfile($dir, 'key.pem');
 
 	if ( ! -e $dir ) {
 		mkdir $dir, 0700;
 	}
 
-	# JSON config
+	# Save config, key and certs to store
 	ACNE::Util::File::writeJSON($s->{'conf'}, $conf_fp);
+	ACNE::Util::File::writeJSON(\@chain, $chain_fp);
+	rename $key_new_fp, $key_fp     if -e $key_new_fp;
+	rename $oconf_new_fp, $oconf_fp if -e $oconf_new_fp;
 
-	# Certs
-	open my $fullchain_fh, '>', $fullchain_fp;
-	print $fullchain_fh join("\n", @chain), "\n";
+	$s->activate;
+}
 
-	my $cert = shift @chain;
-	open my $cert_fh, '>', $cert_fp;
-	print $cert_fh $cert, "\n";
+# Keep a history using a sha digest of the chain in the directory.
+# A symlink points from the place deamons look.
+#
+# We use symlink + rename over the old symlink for atomicity.
+#
+# While the way certs and keys gets read seperately in deamons makes the
+# atomicity imperfect, its for free and reduces the window.
+#
+# live/<name> -> live/.versions/<name>/<sha>/
+#
+sub activate {
+	my ($s) = @_;
+	my $id      = $s->{'id'};
+	my $dbdir   = $s->{'dir'};
+	my $pkey    = $s->{'pkey'};
+	my @chain   = @{$s->{'chain'}};
+	my @run     = @{$s->{'combined'}->{'run'}};
+	my $c_store = $config->{'system'}->{'store'};
+	my $sha     = sha256_hex(join('', @chain));
 
-	open my $chain_fh, '>', $chain_fp;
-	print $chain_fh join("\n", @chain), "\n";
+	my $livedir   = catdir(@$c_store, 'live', '.versions', $id, $sha);
+	my $livesym   = catfile(@$c_store, 'live', $id);
+	my $livesym_t = catfile(@$c_store, 'live', $id . '.new');
 
-	# Key and CSR config
-	rename $key_new_fp, $key_fp;
-	rename $oconf_new_fp, $oconf_fp;
+	make_path $livedir, { mode => 0750 };
 
+	# Certs & key
+	ACNE::Util::File::writeStr(join("\n", @chain), catfile($livedir, 'fullchain.pem'));
+	ACNE::Util::File::writeStr(shift @chain,       catfile($livedir, 'cert.pem'));
+	ACNE::Util::File::writeStr(join("\n", @chain), catfile($livedir, 'chain.pem'));
+	$pkey->save(catfile($livedir, 'key.pem'), 0600);
+
+	# Switch link
+	say "Activating version in $livedir";
+	{
+		no autodie qw(unlink);
+		unlink $livesym_t;
+		symlink $livedir, $livesym_t;
+		rename $livesym_t, $livesym;
+	}
+
+	# Call out to hooks
+	# Double fork because of env??
+	# supply: name fullchain chain cert key fullchain_ver chain_ver cert_ver key_ver
+	# _ver variants supply path to versionned directory.
+	for my $hook ( @run ) {
+		say "Should have run hook $hook";
+	}
+
+	1;
 }
 
 sub issue {
@@ -196,6 +239,7 @@ sub csrGenerate {
 	else {
 		$pkey = $s->pkeyCreate($key);
 	}
+	$s->{'pkey'} = $pkey;
 	$pkey->save($pkey_fp, 0600);
 
 	# Create a CSR config which can be reused without special arguments
