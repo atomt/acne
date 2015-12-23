@@ -119,6 +119,7 @@ sub activate {
 	my $sha     = sha256_hex(join('', @chain));
 
 	my $livedir   = catdir(@$c_store, 'live', '.versions', $id, $sha);
+	my $livedir_r = catdir('.versions', $id, $sha);
 	my $livesym   = catfile(@$c_store, 'live', $id);
 	my $livesym_t = catfile(@$c_store, 'live', $id . '.new');
 
@@ -135,7 +136,7 @@ sub activate {
 	{
 		no autodie qw(unlink);
 		unlink $livesym_t;
-		symlink $livedir, $livesym_t;
+		symlink $livedir_r, $livesym_t;
 		rename $livesym_t, $livesym;
 	}
 
