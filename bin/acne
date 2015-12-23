@@ -4,7 +4,7 @@ use 5.014;
 use warnings FATAL => 'all';
 use autodie;
 
-umask 0077;
+umask 0027;
 
 my $cmd = $ARGV[0];
 
