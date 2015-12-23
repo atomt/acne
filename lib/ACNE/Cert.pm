@@ -303,6 +303,7 @@ sub getId        { $_[0]->{'id'}; };
 sub getCAId      { $_[0]->{'combined'}->{'ca'}; }
 sub getKeyConf   { $_[0]->{'combined'}->{'key'}; }
 sub getRollKey   { $_[0]->{'combined'}->{'roll-key'}; }
+sub getRun       { @{$_[0]->{'combined'}->{'run'}}; }
 
 sub pkeyCreate {
 	my ($s, $conf) = @_;
