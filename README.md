@@ -1,6 +1,6 @@
 # WARNING
 
-*This is very experimental. Things still change around -a lot-. Some things do not work yet, like hooks and renews. There is a certain amount of Not Invented Here still lurking in the code base and error handling is currently not the greatest*
+*This is very experimental. Things still change around -a lot-. Some things do not work yet, like renews. There is a certain amount of Not Invented Here still lurking in the code base and error handling is currently not the greatest*
 
 # acne - a ACME/Let's Encrypt client
 
@@ -122,8 +122,6 @@ Renew all certificates in the store close to their expiry date. *NOT WORKING YET
 
 ## Hooks
 
-*NOT WORKING YET*
-
 Hooks live in `/etc/acne/hooks/`, as one executable script or binary per hook (see defaults.run and --run). Hooks gets called with a parameter -- install, remove, postinst or postrm.
 
 install is called once for each changed certificate, remove on each certificate removed. postinst is called after all installs have been processed and postrm likewise for removals.
@@ -141,7 +139,7 @@ A very simple hook for nginx would be saved to `/etc/acne/hooks/nginx` and look 
         ;;
     esac
 
-    exit 1
+    exit 0
 
 For install and remove the variables `name`, `cert`, `chain`, `fullchain` and `key` will be set. Except for name, they contain full paths to the respective files in the certificate store. They could be used to copy/remove and/or update server configuration, for example.
 

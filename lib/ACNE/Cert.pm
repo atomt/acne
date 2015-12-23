@@ -15,6 +15,10 @@ use File::Spec::Functions qw(catdir catfile);
 use IPC::Open3;
 use Digest::SHA qw(sha256_hex);
 
+# post{inst,rm}s to run after many certs processed
+my %postinst;
+my %postrm;
+
 sub _new {
 	my ($class, $id, $conf) = @_;
 
@@ -140,13 +144,28 @@ sub activate {
 		rename $livesym_t, $livesym;
 	}
 
+	# Exapnd hooks to full path
+	@run = map { catfile(@ACNE::Common::etcdir, 'hooks', $_) } @run;
+
+	# Save all the hooks so we can run a global postinst
+	$postinst{$_} = 1 for @run;
+
 	# Call out to hooks
-	# Double fork because of env??
-	# supply: name fullchain chain cert key fullchain_ver chain_ver cert_ver key_ver
-	# _ver variants supply path to versionned directory.
-	for my $hook ( @run ) {
-		say "Should have run hook $hook";
-	}
+	_runhooks(
+		hooks   => \@run,
+		arg     => 'install',
+		environ => {
+			'name'          => $id,
+			'fullchain'     => catfile($livesym, 'fullchain.pem'),
+			'chain'         => catfile($livesym, 'chain.pem'),
+			'cert'          => catfile($livesym, 'cert.pem'),
+			'key'           => catfile($livesym, 'key.pem'),
+			'fullchain_ver' => catfile($livedir, 'fullchain.pem'),
+			'chain_ver'     => catfile($livedir, 'chain.pem'),
+			'cert_ver'      => catfile($livedir, 'cert.pem'),
+			'key_ver'       => catfile($livedir, 'key.pem')
+		}
+	);
 
 	1;
 }
@@ -284,6 +303,7 @@ sub getId        { $_[0]->{'id'}; };
 sub getCAId      { $_[0]->{'combined'}->{'ca'}; }
 sub getKeyConf   { $_[0]->{'combined'}->{'key'}; }
 sub getRollKey   { $_[0]->{'combined'}->{'roll-key'}; }
+sub getRun       { @{$_[0]->{'combined'}->{'run'}}; }
 
 sub pkeyCreate {
 	my ($s, $conf) = @_;
@@ -298,6 +318,44 @@ sub pkeyCreate {
 	}
 
 	$ret;
+}
+
+##
+## No methods below. Effectively module global subs.
+##
+
+sub _runpostinst {
+	my @run = sort keys %postinst;
+
+	_runhooks(
+		hooks   => \@run,
+		arg     => 'postinst',
+		environ => {},
+	);
+}
+
+sub _runhooks {
+	my (%args) = @_;
+	my $hooks    = $args{'hooks'};
+	my $arg     = $args{'arg'};
+	my $environ = $args{'environ'};
+
+	while ( my ($k, $v) = each %$environ ) {
+		$ENV{$k} = $v;
+	}
+
+	for my $hook ( @$hooks ) {
+		say "Running hook $hook $arg";
+		eval {
+			system $hook, $arg;
+		};
+		if ( $@ ) {
+			say STDERR "Problem running hook $hook $arg";
+			say STDERR $@;
+		}
+	}
+
+	delete $ENV{$_} for keys %$environ;
 }
 
 1;

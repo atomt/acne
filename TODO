@@ -1,0 +1,11 @@
+Don't run any hooks even if default run is set
+ acne new --no-run ? acne new --run none ?
+
+Renews + auto-renews
+
+reinstall from already issued
+ acne install <name>
+
+hooks and exit statuses..
+
+acne account needs some ux fixes regarding account updating

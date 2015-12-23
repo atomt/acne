@@ -51,8 +51,9 @@ sub run {
 
 	my $ca_id      = $cert->getCAId;
 
-	say sprintf("Using CA %s, key %s, roll-key %s (on renewals)",
+	say sprintf("Using CA %s, run %s, key %s, roll-key %s (on renewals)",
 	  $ca_id,
+          join(' ', $cert->getRun),
 	  $cert->getKeyConf,
 	  $cert->getRollKey
 	);
@@ -66,6 +67,7 @@ sub run {
 
 	$cert->issue($ca);
 	$cert->save;
+	ACNE::Cert::_runpostinst();
 }
 
 1;
