@@ -5,7 +5,7 @@ use warnings FATAL => 'all';
 use autodie;
 use Carp qw(croak carp);
 
-use JSON;
+use JSON::PP;
 
 my $re_comments   = qr!#.*$!;
 my $re_whitespace = qr!(^\s+|\s+$)!;

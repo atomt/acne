@@ -6,7 +6,7 @@ use autodie;
 use Carp qw(croak carp);
 
 use ACME::Client::JWS;
-use JSON;
+use JSON::PP;
 use HTTP::Tiny;
 use MIME::Base64 qw(encode_base64 encode_base64url);
 

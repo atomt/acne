@@ -11,7 +11,7 @@ use warnings FATAL => 'all';
 use autodie;
 use Carp qw(croak carp);
 
-use JSON;
+use JSON::PP;
 use MIME::Base64 qw(encode_base64url);
 use Digest::SHA qw(sha256);
 use Data::Dumper;
