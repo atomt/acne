@@ -344,7 +344,7 @@ sub _runhooks {
 	}
 
 	for my $hook ( @$hooks ) {
-		say "Running hook $hook";
+		say "Running hook $hook $arg";
 		eval {
 			system $hook, $arg;
 		};
