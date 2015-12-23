@@ -346,7 +346,7 @@ sub _runhooks {
 	for my $hook ( @$hooks ) {
 		say "Running hook $hook";
 		eval {
-			system $_, $arg;
+			system $hook, $arg;
 		};
 		if ( $@ ) {
 			say STDERR "Problem running hook $hook $arg";
