@@ -31,11 +31,15 @@ sub run {
 	# Set up system.store
 	say "Creating system.store in $store";
 	mkdirv($store, '0755');
-	systemv('chmod', '0755', $store);
 
-	for my $p ( qw(account cert live) ) {
+	for my $p ( ('account', 'cert') ) {
 		my $fp = catdir($store, $p);
-		mkdirv(catdir($fp), '0750');
+		mkdirv($fp, '0700');
+		systemv('chmod', '0700', $fp);
+	}
+	for my $p ( ('live', catdir('live', '.versions')) ) {
+		my $fp = catdir($store, $p);
+		mkdirv($fp, '0750');
 		systemv('chmod', '0750', $fp);
 	}
 
