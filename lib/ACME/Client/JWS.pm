@@ -82,7 +82,7 @@ sub sign {
 sub thumbprint {
 	my ($s) = @_;
 	my $jwk = $s->{'header'}->{'jwk'};
-	encode_base64url(sha256(JSON->new->canonical(1)->encode($jwk)));
+	encode_base64url(sha256(JSON::PP->new->canonical(1)->encode($jwk)));
 }
 
 1;
