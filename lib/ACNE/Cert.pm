@@ -213,9 +213,7 @@ sub domainAuth {
 	my $path      = catfile($acmeroot, $token);
 
 	say "Got challenge from CA, publishing";
-	open my $fh, '>', $path;
-	print $fh $keyauth;
-	undef $fh;
+	ACNE::Util::File::writeStr($keyauth, $path);
 	chmod 644, $path;
 
 	# Do a sanity test, see if we can fetch the challenge ourselfes
@@ -225,7 +223,7 @@ sub domainAuth {
 	my $resp = HTTP::Tiny->new->get($url);
 
 	if ( $resp->{'content'} ne $keyauth ) {
-		die "Content of the token on the server did not match the one we put there..!\nGot $resp->{content}";
+		die "Content of the token on the server did not match the one we put there. Is it under our control?\n";
 	}
 
 	# Notify CA to go fetch
