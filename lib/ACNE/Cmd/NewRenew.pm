@@ -23,7 +23,8 @@ sub run {
 	  $arg_ca,
 	  $arg_key,
 	  $arg_roll_key,
-	  $arg_renew_left_days
+	  $arg_renew_left_days,
+	  $arg_no_run
 	);
 
 	GetOptions(
@@ -32,8 +33,17 @@ sub run {
 	  'ca=s'       => \$arg_ca,
 	  'key=s'      => \$arg_key,
 	  'roll-key!'  => \$arg_roll_key,
-	  'renew-left' => \$arg_renew_left_days
+	  'renew-left' => \$arg_renew_left_days,
+	  'no-run'     => \$arg_no_run
 	) or die "try acne help\n";
+
+	if ( @arg_run and $arg_no_run ) {
+		die "--run and --no-run together does not make sense; aborting.\n";
+	}
+
+	if ( @arg_dns == 0 ) {
+		die "at least one -d hostname (--dns) argument must be specified\n";
+	}
 
 	ACNE::Common::config();
 	ACNE::Common::drop_privs();
@@ -46,14 +56,16 @@ sub run {
 	  'ca'         => $arg_ca,
 	  'key'        => $arg_key,
 	  'roll-key'   => $arg_roll_key,
-	  'renew-left' => $arg_renew_left_days
+	  'renew-left' => $arg_renew_left_days,
+	  'no-run'     => $arg_no_run
 	});
 
 	my $ca_id      = $cert->getCAId;
+	my $run        = $cert->getRun;
 
 	say sprintf("Using CA %s, run %s, key %s, roll-key %s (on renewals)",
 	  $ca_id,
-          join(' ', $cert->getRun),
+	  $run ? join(' ', @$run) : 'none',
 	  $cert->getKeyConf,
 	  $cert->getRollKey
 	);

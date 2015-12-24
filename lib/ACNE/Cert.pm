@@ -24,13 +24,12 @@ sub _new {
 
 	# Load defaults and ca config early to get early feedback.
 	my $defaults = $config->{'defaults'};
-	$defaults->{for} = [$defaults->{for}]; # FIXME
-	my $combined; { my %tmp = (%$defaults, %$conf); $combined = \%tmp };
+	my $combined = do { my %tmp = (%$defaults, %$conf); \%tmp };
+	delete $combined->{'run'} if $combined->{'no-run'};
 
-	# Make sure CA and run is always saved to the cert json  regardless if
+	# Make sure CA is always saved to the cert json regardless if
 	# specified on command line.
 	$conf->{ca}  = $combined->{ca};
-	$conf->{run} = $combined->{run};
 
 	bless {
 	  id       => $id,
@@ -118,7 +117,8 @@ sub activate {
 	my $dbdir   = $s->{'dir'};
 	my $pkey    = $s->{'pkey'};
 	my @chain   = @{$s->{'chain'}};
-	my @run     = @{$s->{'combined'}->{'run'}};
+	my $run     = $s->{'combined'}->{'run'};
+	my $norun   = $s->{'combined'}->{'no-run'};
 	my $c_store = $config->{'system'}->{'store'};
 	my $sha     = sha256_hex(join('', @chain));
 
@@ -144,28 +144,30 @@ sub activate {
 		rename $livesym_t, $livesym;
 	}
 
-	# Exapnd hooks to full path
-	@run = map { catfile(@ACNE::Common::etcdir, 'hooks', $_) } @run;
+	if ( defined $run or !$norun ) {
+		# Expand hooks to full path
+		my @_run = map { catfile(@ACNE::Common::etcdir, 'hooks', $_) } @$run;
 
-	# Save all the hooks so we can run a global postinst
-	$postinst{$_} = 1 for @run;
+		# Save all the hooks so we can run a global postinst
+		$postinst{$_} = 1 for @_run;
 
-	# Call out to hooks
-	_runhooks(
-		hooks   => \@run,
-		arg     => 'install',
-		environ => {
-			'name'          => $id,
-			'fullchain'     => catfile($livesym, 'fullchain.pem'),
-			'chain'         => catfile($livesym, 'chain.pem'),
-			'cert'          => catfile($livesym, 'cert.pem'),
-			'key'           => catfile($livesym, 'key.pem'),
-			'fullchain_ver' => catfile($livedir, 'fullchain.pem'),
-			'chain_ver'     => catfile($livedir, 'chain.pem'),
-			'cert_ver'      => catfile($livedir, 'cert.pem'),
-			'key_ver'       => catfile($livedir, 'key.pem')
-		}
-	);
+		# Call out to hooks
+		_runhooks(
+			hooks   => \@_run,
+			arg     => 'install',
+			environ => {
+				'name'          => $id,
+				'fullchain'     => catfile($livesym, 'fullchain.pem'),
+				'chain'         => catfile($livesym, 'chain.pem'),
+				'cert'          => catfile($livesym, 'cert.pem'),
+				'key'           => catfile($livesym, 'key.pem'),
+				'fullchain_ver' => catfile($livedir, 'fullchain.pem'),
+				'chain_ver'     => catfile($livedir, 'chain.pem'),
+				'cert_ver'      => catfile($livedir, 'cert.pem'),
+				'key_ver'       => catfile($livedir, 'key.pem')
+			}
+		);
+	}
 
 	1;
 }
@@ -303,7 +305,7 @@ sub getId        { $_[0]->{'id'}; };
 sub getCAId      { $_[0]->{'combined'}->{'ca'}; }
 sub getKeyConf   { $_[0]->{'combined'}->{'key'}; }
 sub getRollKey   { $_[0]->{'combined'}->{'roll-key'}; }
-sub getRun       { @{$_[0]->{'combined'}->{'run'}}; }
+sub getRun       { $_[0]->{'combined'}->{'run'}; }
 
 sub pkeyCreate {
 	my ($s, $conf) = @_;
