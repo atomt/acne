@@ -201,13 +201,26 @@ sub issue {
 	}
 
 	# Actually authorize domains
+	my @authorized;
+	say "Authorizing domains at authority";
 	for my $domain ( @validated ) {
-		say "Authorizing domain $domain";
-		$s->domainAuth($ca, $domain)
+		eval { $s->domainAuth($ca, $domain) };
+		if ( $@ ) {
+			print STDERR " $domain FAIL: $@";
+		}
+		else {
+			say " $domain OK!";
+			push @authorized, $domain;
+		}
+	}
+
+	# FIXME Ditto as for pre-flight
+	if ( @validated != @authorized ) {
+		die "Some dns names failed the pre-flight check - aborting\n";
 	}
 
 	say "Making Certificate Singing Request";
-	my $csr = $s->csrGenerate(@validated);
+	my $csr = $s->csrGenerate(@authorized);
 
 	say "Requesting Certificate(s)";
 	my @chain = $ca->new_cert($csr);
