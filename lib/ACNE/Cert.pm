@@ -315,15 +315,11 @@ sub csrGenerate {
 	  'commonName_default = ', $domains[0], "\n",
 	  '[ v3_req ]', "\n",
 	  'basicConstraints = CA:FALSE', "\n",
-	  'keyUsage = nonRepudiation, digitalSignature, keyEncipherment, keyAgreement', "\n";
-
-	if ( @domains > 1 ) {
-		print $conf_fh
-		  'subjectAltName = @alt_names', "\n",
-		  '[alt_names]', "\n";
-		while ( my ($i, $val) = each @domains ) {
-			print $conf_fh sprintf("DNS.%d = %s\n", $i + 1, $val);
-		}
+	  'keyUsage = nonRepudiation, digitalSignature, keyEncipherment, keyAgreement', "\n",
+	  'subjectAltName = @alt_names', "\n",
+	  '[alt_names]', "\n";
+	while ( my ($i, $val) = each @domains ) {
+		print $conf_fh sprintf("DNS.%d = %s\n", $i + 1, $val);
 	}
 
 	undef $conf_fh;
