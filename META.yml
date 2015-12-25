@@ -45,6 +45,8 @@ provides:
     file: lib/ACNE/OpenSSL/RSA/FakeNum.pm
   ACNE::Util::File:
     file: lib/ACNE/Util/File.pm
+  ACNE::Util::Rand:
+    file: lib/ACNE/Util/Rand.pm
   ACNE::Validator:
     file: lib/ACNE/Validator.pm
 requires:
