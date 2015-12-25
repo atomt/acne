@@ -17,6 +17,7 @@ lib/ACNE/Crypto/RSA.pm
 lib/ACNE/OpenSSL/RSA.pm
 lib/ACNE/OpenSSL/RSA/FakeNum.pm
 lib/ACNE/Util/File.pm
+lib/ACNE/Util/Rand.pm
 lib/ACNE/Validator.pm
 LICENSE
 MANIFEST			This list of files
