@@ -59,6 +59,10 @@ my $account_validator = ACNE::Validator->new(
 	'email' => {
 		default => undef,
 		validator => [\&ACNE::Validator::REGEX, qr/^(.+\@.+)/]
+	},
+	'tel' => {
+		default => undef,
+		validator => [\&ACNE::Validator::REGEX, qr/^([\d\+\ -]+)/]
 	}
 );
 
