@@ -7,6 +7,7 @@ use Carp qw(croak carp);
 
 use ACNE::Common qw($config);
 use ACNE::Util::File;
+use ACNE::Util::Rand;
 use ACNE::Crypto::RSA;
 
 use HTTP::Tiny;
@@ -177,13 +178,36 @@ sub issue {
 	my $dir = $s->{'dir'};
 	my @dns = @{$s->{'conf'}->{'dns'}};
 
+	# Test apparent control over all domains before making authority do anything.
+	my @validated;
+	say "Running pre-flight checks";
+	my $tester = $s->domainAuthTestSetup;
 	for my $domain ( @dns ) {
+		eval { $tester->test($domain) };
+		if ( $@ ) {
+			print STDERR " $domain FAIL: $@";
+		}
+		else {
+			say " $domain OK!";
+			push @validated, $domain;
+		}
+	}
+	undef $tester;
+
+	# FIXME For now we just die. Might want to allow to continue without the
+	# problem domains if operator wants to.
+	if ( @dns != @validated ) {
+		die "Some dns names failed the pre-flight check - aborting\n";
+	}
+
+	# Actually authorize domains
+	for my $domain ( @validated ) {
 		say "Authorizing domain $domain";
 		$s->domainAuth($ca, $domain)
 	}
 
 	say "Making Certificate Singing Request";
-	my $csr = $s->csrGenerate;
+	my $csr = $s->csrGenerate(@validated);
 
 	say "Requesting Certificate(s)";
 	my @chain = $ca->new_cert($csr);
@@ -191,6 +215,34 @@ sub issue {
 
 	1;
 }
+
+# Write a random string to random filename in acmeroot
+# FIXME move to challenge module along with the other http01fs stuff.
+sub domainAuthTestSetup {
+	my ($s) = @_;
+	my $rand = ACNE::Util::Rand::craprand(20);
+	my $fp = catfile(@{$config->{'challenge'}->{'http01fs'}->{'acmeroot'}}, $rand);
+	ACNE::Util::File::writeStr($rand, $fp);
+	bless { path => $fp, rand => $rand, http => HTTP::Tiny->new } => 'ACNE::Cert::AuthTest';
+}
+sub ACNE::Cert::AuthTest::test {
+	my ($s, $domain) = @_;
+	my $rand = $s->{'rand'};
+	my $r = $s->{'http'}->get('http://' . $domain . '/' . $rand);
+
+	if ( $r->{'success'} ) {
+		if ( $r->{'content'} ne $rand ) {
+			die "Did not get the expected content\n";
+		}
+	}
+	elsif ( $r->{'status'} == 599 ) {
+		die $r->{'content'};
+	}
+	else {
+		die "Bad HTTP status ", $r->{'status'}, " ", $r->{'reason'}, "\n";
+	}
+}
+sub ACNE::Cert::AuthTest::DESTROY { unlink $_[0]->{'path'}; }
 
 sub domainAuth {
 	my ($s, $acme, $domain) = @_;
@@ -216,16 +268,6 @@ sub domainAuth {
 	ACNE::Util::File::writeStr($keyauth, $path);
 	chmod 644, $path;
 
-	# Do a sanity test, see if we can fetch the challenge ourselfes
-	# before we request the CA to go get it.
-	my $url = 'http://' . $domain . '/.well-known/acme-challenge/' . $token;
-	say "Testing $url";
-	my $resp = HTTP::Tiny->new->get($url);
-
-	if ( $resp->{'content'} ne $keyauth ) {
-		die "Content of the token on the server did not match the one we put there. Is it under our control?\n";
-	}
-
 	# Notify CA to go fetch
 	say "Notifying CA that we are ready";
 	$acme->challenge($challenge->{'uri'}, $keyauth);
@@ -238,10 +280,9 @@ sub domainAuth {
 
 # FIXME most of this probably wants to go to ACNE::OpenSSL::PKCS10
 sub csrGenerate {
-	my ($s) = @_;
+	my ($s, @domains) = @_;
 	my $dir      = $s->{'dir'};
 	my $combined = $s->{'combined'};
-	my @dns      = @{$combined->{'dns'}};
 	my $key      = $combined->{'key'};
 	my $roll     = $combined->{'roll-key'};
 
@@ -271,16 +312,16 @@ sub csrGenerate {
 	  '[req_distinguished_name]', "\n",
 	  'commonName = Common Name', "\n",
 	  'commonName_max = 256', "\n",
-	  'commonName_default = ', $dns[0], "\n",
+	  'commonName_default = ', $domains[0], "\n",
 	  '[ v3_req ]', "\n",
 	  'basicConstraints = CA:FALSE', "\n",
 	  'keyUsage = nonRepudiation, digitalSignature, keyEncipherment, keyAgreement', "\n";
 
-	if ( @dns > 1 ) {
+	if ( @domains > 1 ) {
 		print $conf_fh
 		  'subjectAltName = @alt_names', "\n",
 		  '[alt_names]', "\n";
-		while ( my ($i, $val) = each @dns ) {
+		while ( my ($i, $val) = each @domains ) {
 			print $conf_fh sprintf("DNS.%d = %s\n", $i + 1, $val);
 		}
 	}
