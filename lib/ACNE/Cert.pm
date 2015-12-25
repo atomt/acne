@@ -265,7 +265,7 @@ sub domainAuth {
 	my ($s, $acme, $domain) = @_;
 	my $acmeroot = catdir(@{$config->{'challenge'}->{'http01fs'}->{'acmeroot'}});
 
-	say "Requesting challenges";
+	# Ask CA for challenges
 	my @challenges_all = $acme->new_authz($domain);
 	my @challenges = grep { $_->{'type'} eq 'http-01' } @challenges_all;
 
@@ -281,14 +281,12 @@ sub domainAuth {
 	my $keyauth   = $token . '.' . $thumb;
 	my $path      = catfile($acmeroot, $token);
 
-	say "Got challenge from CA, publishing";
+	# Publish
 	ACNE::Util::File::writeStr($keyauth, $path);
 	chmod 644, $path;
 
 	# Notify CA to go fetch
-	say "Notifying CA that we are ready";
 	$acme->challenge($challenge->{'uri'}, $keyauth);
-	say "Domain $domain verified!";
 
 	unlink $path;
 
