@@ -236,12 +236,16 @@ sub domainAuthTestSetup {
 	my $rand = ACNE::Util::Rand::craprand(20);
 	my $fp = catfile(@{$config->{'challenge'}->{'http01fs'}->{'acmeroot'}}, $rand);
 	ACNE::Util::File::writeStr($rand, $fp);
+	chmod 644, $fp;
 	bless { path => $fp, rand => $rand, http => HTTP::Tiny->new } => 'ACNE::Cert::AuthTest';
 }
 sub ACNE::Cert::AuthTest::test {
 	my ($s, $domain) = @_;
 	my $rand = $s->{'rand'};
-	my $r = $s->{'http'}->get('http://' . $domain . '/' . $rand);
+	my $http = $s->{'http'};
+	my $uri  = 'http://' . $domain . '/.well-known/acme-challenge/' . $rand;
+
+	my $r = $http->get($uri);
 
 	if ( $r->{'success'} ) {
 		if ( $r->{'content'} ne $rand ) {
