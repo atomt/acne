@@ -14,7 +14,8 @@ use HTTP::Tiny;
 use File::Path qw(make_path);
 use File::Spec::Functions qw(catdir catfile);
 use IPC::Open3;
-use Digest::SHA qw(sha256_hex);
+use MIME::Base64 qw(encode_base64url);
+use Digest::SHA qw(sha256);
 
 # post{inst,rm}s to run after many certs processed
 my %postinst;
@@ -121,7 +122,7 @@ sub activate {
 	my $run     = $s->{'combined'}->{'run'};
 	my $norun   = $s->{'combined'}->{'no-run'};
 	my $c_store = $config->{'system'}->{'store'};
-	my $sha     = sha256_hex(join('', @chain));
+	my $sha     = encode_base64url(sha256(join('', @chain)));
 
 	my $livedir   = catdir(@$c_store, 'live', '.versions', $id, $sha);
 	my $livedir_r = catdir('.versions', $id, $sha);
