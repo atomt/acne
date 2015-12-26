@@ -11,6 +11,7 @@ lib/ACNE/Cert.pm
 lib/ACNE/Cmd/Account.pm
 lib/ACNE/Cmd/Help.pm
 lib/ACNE/Cmd/Init.pm
+lib/ACNE/Cmd/Install.pm
 lib/ACNE/Cmd/NewRenew.pm
 lib/ACNE/Common.pm
 lib/ACNE/Crypto/RSA.pm
@@ -28,4 +29,3 @@ t/00-load.t
 t/manifest.t
 t/pod-coverage.t
 t/pod.t
-TODO

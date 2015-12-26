@@ -120,6 +120,10 @@ Renew the certificate of entry `example` regardless of expiry date using same se
 
 Renew all certificates in the store close to their expiry date. *NOT WORKING YET*
 
+    acne install <cert> [<cert2> ..]
+
+(Re-)installs a already issued certificate. new and renew does this automatically. This is useful to test installation hooks or reinstall if something didn't go as planned.
+
 ## Hooks
 
 Hooks live in `/etc/acne/hooks/`, as one executable script or binary per hook (see defaults.run and --run). Hooks gets called with a parameter -- install, remove, postinst or postrm.

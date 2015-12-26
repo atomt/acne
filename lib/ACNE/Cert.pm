@@ -72,8 +72,20 @@ sub new {
 # FIXME use configured store...
 sub load {
 	my ($class, $id) = @_;
-	my $conf_fp = catfile(@{$config->{'system'}->{'store'}}, 'cert', $id, 'config.json');
-	_new(@_, ACNE::Util::File::readJSON($conf_fp));
+	my $dir      = catdir(@{$config->{'system'}->{'store'}}, 'cert', $id);
+	my $conf_fp  = catfile($dir, 'config.json');
+	my $chain_fp = catfile($dir, 'chain.json');
+	my $key_fp   = catfile($dir, 'key.pem');
+
+	if ( ! -e $dir ) {
+		die "not found in store\n";
+	}
+
+	my $conf = ACNE::Util::File::readJSON($conf_fp);
+	my $s = _new($class, $id, $conf);
+	$s->{'chain'} = ACNE::Util::File::readJSON($chain_fp);
+	$s->{'pkey'}  = ACNE::Crypto::RSA->load($key_fp);
+	$s;
 }
 
 # Write cert files to cert db

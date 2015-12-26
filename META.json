@@ -62,6 +62,9 @@
       "ACNE::Cmd::Init" : {
          "file" : "lib/ACNE/Cmd/Init.pm"
       },
+      "ACNE::Cmd::Install" : {
+         "file" : "lib/ACNE/Cmd/Install.pm"
+      },
       "ACNE::Cmd::NewRenew" : {
          "file" : "lib/ACNE/Cmd/NewRenew.pm"
       },
