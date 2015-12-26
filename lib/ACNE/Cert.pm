@@ -217,7 +217,7 @@ sub issue {
 
 	# FIXME Ditto as for pre-flight
 	if ( @validated != @authorized ) {
-		die "Some dns names failed the pre-flight check - aborting\n";
+		die "Some dns names failed authorization by authority - aborting\n";
 	}
 
 	say "Making Certificate Singing Request";
