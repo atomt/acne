@@ -1,25 +1,23 @@
 # Internal certificate store/database
 #  system.store     /var/lib/acne
 #
-# What user we want to run as. If invoked as root, changes uid to this
-# user.
+# What user to run as.
 #  system.user      acne
-
-# Contact detauls for account 'default'.
-#  account.default.email you@example.com
-#  account.default.tel   +00555123
+#
+# Contact details, primarily for account recovery
+#  account.email you@example.com
+#  account.tel   +00555123
 #
 # Default settings used for new certificates
-#  defaults.account    default
-#  defaults.ca         letsencrypt-staging
+#  defaults.ca         letsencrypt
 #  defaults.renew-left 30
 #  defaults.roll-key   yes
 #  defaults.key        rsa:3072
-#  defaults.for        nginx
-
-# Where on your file system webserver or proxy points
+#  defaults.run        nginx
+#
+# Where on your file system web server or proxy points
 # /.well-known/acme-challenge/ at
-challenge.http01fs.acmeroot /srv/web/shared/acme
-
+#  challenge.http01fs.acmeroot /var/lib/acne/httpchallenge
+#
 # Define custom CA "exampleca". Usable from defaults.ca and --ca
-#  ca.exampleca.host    acme-v1.api.example.com
+#  ca.exampleca.acme-server acme-v1.api.example.com
