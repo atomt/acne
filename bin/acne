@@ -14,7 +14,7 @@ my %commands = (
 	'new'        => 'ACNE::Cmd::New',
 	'help'       => 'ACNE::Cmd::Help',
 	'renew'      => 'ACNE::Cmd::Renew',
-	'renew-auto' => 'ACNE::Cmd::RenewAuto',
+	'renew-auto' => 'ACNE::Cmd::Renew',
 	'revoke'     => 'ACNE::Cmd::Revoke',
 	'install'    => 'ACNE::Cmd::Install',
 );

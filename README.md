@@ -1,6 +1,6 @@
 # WARNING
 
-*This is very experimental. Things still change around -a lot-. Some things do not work yet, like automatic renews. There is a certain amount of Not Invented Here still lurking in the code base and error handling is currently not the greatest*
+*This is very experimental. Things still change around -a lot-. There is a certain amount of Not Invented Here still lurking in the code base and error handling is currently not the greatest*
 
 # acne - a ACME/Let's Encrypt client
 
@@ -118,7 +118,7 @@ Renew the certificate regardless of expiry date using same settings specified wh
 
     acne renew-auto
 
-Renew all certificates in the store close to their expiry date. *NOT WORKING YET*
+Renew all certificates in the store close to their expiry date as defined by defaults.renew-left DAYS in the configuration or --renew-left DAYS on new.
 
     acne install <cert> [<cert2> ..]
 

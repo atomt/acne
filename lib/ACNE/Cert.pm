@@ -42,6 +42,7 @@ sub _new {
 	  pkey       => undef,
 	  location   => undef,
 	  notafter   => undef,
+	  renew      => undef,
 	  tested     => [],
 	  authorized => [],
 	  defaults   => $defaults,
@@ -83,6 +84,7 @@ sub load {
 	my $key_fp      = catfile($dir, 'key.pem');
 	my $loc_fp      = catfile($dir, 'location');
 	my $notafter_fp = catfile($dir, 'notafter');
+	my $renew_fp    = catfile($dir, 'renewafter');
 
 	if ( ! -e $dir ) {
 		die "not found in store\n";
@@ -96,6 +98,8 @@ sub load {
 		$s->{'location'} = do { local $/; open my $fh, '<', $loc_fp; <$fh> };
 	}
 	$s->{'notafter'} = do { local $/; open my $fh, '<', $notafter_fp; <$fh> };
+	$s->{'renew'} = do { local $/; open my $fh, '<', $renew_fp; <$fh> };
+
 
 	$s;
 }
@@ -115,6 +119,7 @@ sub save {
 	my $key_fp       = catfile($dir, 'key.pem');
 	my $loc_fp       = catfile($dir, 'location');
 	my $notafter_fp  = catfile($dir, 'notafter');
+	my $renew_fp     = catfile($dir, 'renewafter');
 
 	if ( ! -e $dir ) {
 		mkdir $dir, 0700;
@@ -127,6 +132,7 @@ sub save {
 		ACNE::Util::File::writeStr($loc, $loc_fp);
 	}
 	ACNE::Util::File::writeStr($s->{'notafter'}, $notafter_fp);
+	ACNE::Util::File::writeStr($s->{'renew'}, $renew_fp);
 	rename $key_new_fp, $key_fp     if -e $key_new_fp;
 	rename $oconf_new_fp, $oconf_fp if -e $oconf_new_fp;
 
@@ -264,6 +270,7 @@ sub authorize {
 
 sub issue {
 	my ($s, $ca) = @_;
+	my $renew_left = $s->{'combined'}->{'renew-left'};
 	my @authorized = @{$s->{'authorized'}};
 
 	if ( @authorized == 0 ) {
@@ -280,6 +287,9 @@ sub issue {
 
 	my ($notbefore, $notafter) = ACNE::OpenSSL::Date::x509_dates(@$chain[0]);
 	$s->{'notafter'} = $notafter;
+
+	my $renewafter = $notafter - ($renew_left * 24 * 60 * 60);
+	$s->{'renew'} = $renewafter;
 
 	1;
 }
@@ -406,12 +416,13 @@ sub csrGenerate {
 	$output;
 }
 
-sub getId        { $_[0]->{'id'}; };
-sub getCAId      { $_[0]->{'combined'}->{'ca'}; }
-sub getKeyConf   { $_[0]->{'combined'}->{'key'}; }
-sub getRollKey   { $_[0]->{'combined'}->{'roll-key'}; }
-sub getRun       { $_[0]->{'combined'}->{'run'}; }
-sub getNotAfter  { $_[0]->{'notafter'}; }
+sub getId         { $_[0]->{'id'}; };
+sub getCAId       { $_[0]->{'combined'}->{'ca'}; }
+sub getKeyConf    { $_[0]->{'combined'}->{'key'}; }
+sub getRollKey    { $_[0]->{'combined'}->{'roll-key'}; }
+sub getRun        { $_[0]->{'combined'}->{'run'}; }
+sub getNotAfter   { $_[0]->{'notafter'}; }
+sub getRenewAfter { $_[0]->{'renew'}; }
 
 sub pkeyCreate {
 	my ($s, $conf) = @_;
@@ -464,6 +475,31 @@ sub _runhooks {
 	}
 
 	delete $ENV{$_} for keys %$environ;
+}
+
+sub _findautorenews {
+	my $certs_fp = catdir(@{$config->{'system'}->{'store'}}, 'cert');
+	my @certs;
+	my $now = time;
+
+	opendir(my $dh, $certs_fp);
+	while ( my $dentry = readdir $dh ) {
+		next if $dentry =~ /^\./;
+
+		my $conf_fp = catfile($certs_fp, $dentry, 'config.json');
+		next if ! -e $conf_fp;
+
+		my $renew_fp = catfile($certs_fp, $dentry, 'renewafter');
+		my $renewafter = 0;
+		if ( -e $renew_fp ) {
+			$renewafter = int(do { local $/; open my $fh, '<', $renew_fp; <$fh> });
+		}
+		next if $now < $renewafter;
+
+		push @certs, $dentry;
+	}
+
+	@certs;
 }
 
 1;

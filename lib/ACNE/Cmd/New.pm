@@ -86,7 +86,8 @@ sub run {
 	say "Issuing certificate";
 	$cert->issue($ca);
 	$cert->save;
-	say "Issued certificate expires ", scalar localtime($cert->getNotAfter), " GMT"; # ;
+	say "Issued certificate expires ", scalar localtime($cert->getNotAfter), " GMT";
+	say "Automatic renew after ", scalar localtime($cert->getRenewAfter), " GMT";
 
 	say "Installing certificate";
 	$cert->activate;

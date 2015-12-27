@@ -24,9 +24,17 @@ sub run {
 		usage(0);
 	}
 
-	if ( @ARGV == 0 ) {
-		say STDERR 'Error: No certificates specified on command line';
-		usage(1);
+	if ( $cmd eq 'renew-auto' ) {
+		if ( @ARGV > 0 ) {
+			say STDERR 'Error: renew-auto takes no certificate names';
+			usage(1);
+		}
+	}
+	else {
+		if ( @ARGV == 0 ) {
+			say STDERR 'Error: No certificates specified on command line';
+			usage(1);
+		}
 	}
 
 	ACNE::Common::config();
@@ -36,7 +44,14 @@ sub run {
 
 	my %ca;
 	my @loaded;
-	my @selected = @ARGV;
+	my @selected;
+
+	if ( $cmd eq 'renew-auto' ) {
+		@selected = ACNE::Cert::_findautorenews();
+	}
+	else {
+		@selected = @ARGV;
+	}
 
 	my $account = ACNE::Account->new;
 
@@ -44,7 +59,7 @@ sub run {
 	say 'Certificates selected for renewal';
 	say ' ', $_ for @selected;
 
-	for my $cert_id ( @ARGV ) {
+	for my $cert_id ( @selected ) {
 		my $cert = ACNE::Cert->load($cert_id);
 		my $ca_id = $cert->getCAId;
 		if ( !exists $ca{$ca_id} ) {
@@ -82,6 +97,7 @@ sub run {
 			$cert->issue($ca);
 			$cert->save;
 			say "Issued certificate expires ", scalar localtime($cert->getNotAfter), " GMT"; # ;)
+			say "Automatic renew after ", scalar localtime($cert->getRenewAfter), " GMT";
 
 			say "Installing certificate";
 			$cert->activate;
