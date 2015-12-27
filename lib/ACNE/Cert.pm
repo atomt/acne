@@ -174,7 +174,7 @@ sub activate {
 	$pkey->save(catfile($livedir, 'key.pem'), 0600);
 
 	# Switch link
-	say "Activating version in $livedir";
+	say "Switching $id to version $sha";
 	{
 		no autodie qw(unlink);
 		unlink $livesym_t;
