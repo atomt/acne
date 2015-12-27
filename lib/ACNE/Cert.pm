@@ -9,6 +9,7 @@ use ACNE::Common qw($config);
 use ACNE::Util::File;
 use ACNE::Util::Rand;
 use ACNE::Crypto::RSA;
+use ACNE::OpenSSL::Date;
 
 use HTTP::Tiny;
 use File::Path qw(make_path);
@@ -40,6 +41,7 @@ sub _new {
 	  chain    => undef,
 	  pkey     => undef,
 	  location => undef,
+	  notafter => undef,
 	  defaults => $defaults,
 	  combined => $combined
 	} => $class;
@@ -73,11 +75,12 @@ sub new {
 # FIXME use configured store...
 sub load {
 	my ($class, $id) = @_;
-	my $dir      = catdir(@{$config->{'system'}->{'store'}}, 'cert', $id);
-	my $conf_fp  = catfile($dir, 'config.json');
-	my $chain_fp = catfile($dir, 'chain.json');
-	my $key_fp   = catfile($dir, 'key.pem');
-	my $loc_fp   = catfile($dir, 'location');
+	my $dir         = catdir(@{$config->{'system'}->{'store'}}, 'cert', $id);
+	my $conf_fp     = catfile($dir, 'config.json');
+	my $chain_fp    = catfile($dir, 'chain.json');
+	my $key_fp      = catfile($dir, 'key.pem');
+	my $loc_fp      = catfile($dir, 'location');
+	my $notafter_fp = catfile($dir, 'notafter');
 
 	if ( ! -e $dir ) {
 		die "not found in store\n";
@@ -90,6 +93,8 @@ sub load {
 	if ( -e $loc_fp ) {
 		$s->{'location'} = do { local $/; open my $fh, '<', $loc_fp; <$fh> };
 	}
+	$s->{'notafter'} = do { local $/; open my $fh, '<', $notafter_fp; <$fh> };
+
 	$s;
 }
 
@@ -107,6 +112,7 @@ sub save {
 	my $key_new_fp   = catfile($dir, 'new-key.pem');
 	my $key_fp       = catfile($dir, 'key.pem');
 	my $loc_fp       = catfile($dir, 'location');
+	my $notafter_fp  = catfile($dir, 'notafter');
 
 	if ( ! -e $dir ) {
 		mkdir $dir, 0700;
@@ -118,6 +124,7 @@ sub save {
 	if ( my $loc = $s->{'location'} ) {
 		ACNE::Util::File::writeStr($loc, $loc_fp);
 	}
+	ACNE::Util::File::writeStr($s->{'notafter'}, $notafter_fp);
 	rename $key_new_fp, $key_fp     if -e $key_new_fp;
 	rename $oconf_new_fp, $oconf_fp if -e $oconf_new_fp;
 
@@ -248,6 +255,10 @@ sub issue {
 	my ($loc, $chain) = $ca->new_cert($csr);
 	$s->{'chain'} = $chain;
 	$s->{'location'} = $loc;
+
+	my ($notbefore, $notafter) = ACNE::OpenSSL::Date::x509_dates(@$chain[0]);
+	say "Issued certificate expires ", scalar localtime($notafter), " GMT"; # ;)
+	$s->{'notafter'} = $notafter;
 
 	1;
 }

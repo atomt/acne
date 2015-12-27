@@ -74,6 +74,9 @@
       "ACNE::Crypto::RSA" : {
          "file" : "lib/ACNE/Crypto/RSA.pm"
       },
+      "ACNE::OpenSSL::Date" : {
+         "file" : "lib/ACNE/OpenSSL/Date.pm"
+      },
       "ACNE::OpenSSL::RSA" : {
          "file" : "lib/ACNE/OpenSSL/RSA.pm"
       },
