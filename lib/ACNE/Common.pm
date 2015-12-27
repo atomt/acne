@@ -8,7 +8,6 @@ use Exporter 'import';
 our @EXPORT_OK = qw($config);
 
 use File::Spec::Functions qw(catfile);
-use List::Util qw(any);
 use ACNE::Validator;
 use ACNE::Util::File;
 
@@ -178,7 +177,7 @@ sub getgrouplist {
 	while ( my ($name, $comment, $ggid, $rawgroups) = getgrent ) {
 		next if $ggid == $gid;
 		push @groups, $ggid
-		  if any { $_ eq $username } split /\s/, $rawgroups;
+		  if grep { $_ eq $username } split /\s/, $rawgroups;
 	}
 	@groups;
 }
