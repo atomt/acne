@@ -41,7 +41,6 @@ sub keyInit {
 	# Load or generate our key
 	my $pkey;
 	if ( -e $pkey_fp ) {
-		say "Using existing private key for account";
 		$pkey = ACNE::Crypto::RSA->load($pkey_fp);
 	}
 	else {

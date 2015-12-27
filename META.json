@@ -65,8 +65,11 @@
       "ACNE::Cmd::Install" : {
          "file" : "lib/ACNE/Cmd/Install.pm"
       },
-      "ACNE::Cmd::NewRenew" : {
-         "file" : "lib/ACNE/Cmd/NewRenew.pm"
+      "ACNE::Cmd::New" : {
+         "file" : "lib/ACNE/Cmd/New.pm"
+      },
+      "ACNE::Cmd::Renew" : {
+         "file" : "lib/ACNE/Cmd/Renew.pm"
       },
       "ACNE::Common" : {
          "file" : "lib/ACNE/Common.pm"

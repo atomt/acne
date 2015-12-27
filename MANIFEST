@@ -12,7 +12,8 @@ lib/ACNE/Cmd/Account.pm
 lib/ACNE/Cmd/Help.pm
 lib/ACNE/Cmd/Init.pm
 lib/ACNE/Cmd/Install.pm
-lib/ACNE/Cmd/NewRenew.pm
+lib/ACNE/Cmd/New.pm
+lib/ACNE/Cmd/Renew.pm
 lib/ACNE/Common.pm
 lib/ACNE/Crypto/RSA.pm
 lib/ACNE/OpenSSL/Date.pm

@@ -35,15 +35,17 @@ sub _new {
 	$conf->{ca}  = $combined->{ca};
 
 	bless {
-	  id       => $id,
-	  dir      => catdir(@{$config->{'system'}->{'store'}}, 'cert', $id),
-	  conf     => $conf,
-	  chain    => undef,
-	  pkey     => undef,
-	  location => undef,
-	  notafter => undef,
-	  defaults => $defaults,
-	  combined => $combined
+	  id         => $id,
+	  dir        => catdir(@{$config->{'system'}->{'store'}}, 'cert', $id),
+	  conf       => $conf,
+	  chain      => undef,
+	  pkey       => undef,
+	  location   => undef,
+	  notafter   => undef,
+	  tested     => [],
+	  authorized => [],
+	  defaults   => $defaults,
+	  combined   => $combined
 	} => $class;
 }
 
@@ -128,7 +130,7 @@ sub save {
 	rename $key_new_fp, $key_fp     if -e $key_new_fp;
 	rename $oconf_new_fp, $oconf_fp if -e $oconf_new_fp;
 
-	$s->activate;
+	1;
 }
 
 # Keep a history using a sha digest of the chain in the directory.
@@ -202,14 +204,11 @@ sub activate {
 	1;
 }
 
-sub issue {
-	my ($s, $ca) = @_;
-	my $dir = $s->{'dir'};
+sub preflight {
+	my ($s) = @_;
 	my @dns = @{$s->{'conf'}->{'dns'}};
+	my @tested_ok;
 
-	# Test apparent control over all domains before making authority do anything.
-	my @validated;
-	say "Running pre-flight checks";
 	my $tester = $s->domainAuthTestSetup;
 	for my $domain ( @dns ) {
 		eval { $tester->test($domain) };
@@ -218,21 +217,31 @@ sub issue {
 		}
 		else {
 			say " $domain OK!";
-			push @validated, $domain;
+			push @tested_ok, $domain;
 		}
 	}
-	undef $tester;
 
 	# FIXME For now we just die. Might want to allow to continue without the
 	# problem domains if operator wants to.
-	if ( @dns != @validated ) {
+	if ( @dns != @tested_ok ) {
 		die "Some dns names failed the pre-flight check - aborting\n";
 	}
 
-	# Actually authorize domains
+	$s->{'tested'} = \@tested_ok;
+
+	1;
+}
+
+sub authorize {
+	my ($s, $ca) = @_;
+	my @tested = @{$s->{'tested'}};
 	my @authorized;
-	say "Authorizing domains at authority";
-	for my $domain ( @validated ) {
+
+	if ( @tested == 0 ) {
+		croak "No dns names was successfully tested";
+	}
+
+	for my $domain ( @tested ) {
 		eval { $s->domainAuth($ca, $domain) };
 		if ( $@ ) {
 			print STDERR " $domain FAIL: $@";
@@ -244,20 +253,32 @@ sub issue {
 	}
 
 	# FIXME Ditto as for pre-flight
-	if ( @validated != @authorized ) {
+	if ( @tested != @authorized ) {
 		die "Some dns names failed authorization by authority - aborting\n";
 	}
 
-	say "Making Certificate Singing Request";
+	$s->{'authorized'} = \@authorized;
+
+	1;
+}
+
+sub issue {
+	my ($s, $ca) = @_;
+	my @authorized = @{$s->{'authorized'}};
+
+	if ( @authorized == 0 ) {
+		croak "No dns names was successfully authorized";
+	}
+
+	#say "Making Certificate Singing Request";
 	my $csr = $s->csrGenerate(@authorized);
 
-	say "Requesting Certificate(s)";
+	#say "Requesting Certificate(s)";
 	my ($loc, $chain) = $ca->new_cert($csr);
 	$s->{'chain'} = $chain;
 	$s->{'location'} = $loc;
 
 	my ($notbefore, $notafter) = ACNE::OpenSSL::Date::x509_dates(@$chain[0]);
-	say "Issued certificate expires ", scalar localtime($notafter), " GMT"; # ;)
 	$s->{'notafter'} = $notafter;
 
 	1;
@@ -390,6 +411,7 @@ sub getCAId      { $_[0]->{'combined'}->{'ca'}; }
 sub getKeyConf   { $_[0]->{'combined'}->{'key'}; }
 sub getRollKey   { $_[0]->{'combined'}->{'roll-key'}; }
 sub getRun       { $_[0]->{'combined'}->{'run'}; }
+sub getNotAfter  { $_[0]->{'notafter'}; }
 
 sub pkeyCreate {
 	my ($s, $conf) = @_;

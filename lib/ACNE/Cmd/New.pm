@@ -77,9 +77,24 @@ sub run {
 		exit 1;
 	}
 
+	say "Running pre-flight checks";
+	$cert->preflight;
+
+	say "Authorizing domains at authority";
+	$cert->authorize($ca);
+
+	say "Issuing certificate";
 	$cert->issue($ca);
 	$cert->save;
+	say "Issued certificate expires ", scalar localtime($cert->getNotAfter), " GMT"; # ;
+
+	say "Installing certificate";
+	$cert->activate;
+
+	say "Running postinst hooks";
 	ACNE::Cert::_runpostinst();
+
+
 }
 
 1;
