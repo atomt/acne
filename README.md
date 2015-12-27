@@ -103,8 +103,8 @@ Your hook script(s) will have to take non-root operation into consideration for 
 
 Creates or update account at the Certificate Authority. ca parameter is optional, the default authority will be used if omitted.
 
-    acne new example -d hostname1 [-d hostname2 ..] [--run hook ..] [--ca name]
-      [--key keyspec] [--no-roll-key] [--renew-left DAYS]
+    acne new example -d hostname1 [-d hostname2 ..] [--run hook ..] [--no-run]
+      [--ca name] [--key keyspec] [--no-roll-key] [--renew-left DAYS]
 
 Creates a new entry in our database called `example` with the specified settings if any and request/install the certificate.
 
