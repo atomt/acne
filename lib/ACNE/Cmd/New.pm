@@ -1,4 +1,4 @@
-package ACNE::Cmd::NewRenew;
+package ACNE::Cmd::New;
 
 use 5.014;
 use warnings FATAL => 'all';
