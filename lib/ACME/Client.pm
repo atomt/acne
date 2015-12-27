@@ -224,17 +224,16 @@ sub new_cert {
 		die "Error signing certificate: $r->{status} $r->{reason}\n";
 	}
 
-	# FIXME should return the URL reported in the headers for later
-	# re-dowloading as well.
-
 	my @chain;
 	push @chain, _cert_format($r->{'content'});
 
-	my $links = _links($r->{'headers'});
+	my $headers = $r->{'headers'};
+	my $loc   = $headers->{'location'};
+	my $links = _links($headers);
 	my $uri   = $links->{'up'};
 	$s->_cert_walk_link($uri, \@chain);
 
-	@chain;
+	($loc, \@chain);
 }
 
 sub _cert_walk_link {

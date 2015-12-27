@@ -39,6 +39,7 @@ sub _new {
 	  conf     => $conf,
 	  chain    => undef,
 	  pkey     => undef,
+	  location => undef,
 	  defaults => $defaults,
 	  combined => $combined
 	} => $class;
@@ -76,6 +77,7 @@ sub load {
 	my $conf_fp  = catfile($dir, 'config.json');
 	my $chain_fp = catfile($dir, 'chain.json');
 	my $key_fp   = catfile($dir, 'key.pem');
+	my $loc_fp   = catfile($dir, 'location');
 
 	if ( ! -e $dir ) {
 		die "not found in store\n";
@@ -85,6 +87,9 @@ sub load {
 	my $s = _new($class, $id, $conf);
 	$s->{'chain'} = ACNE::Util::File::readJSON($chain_fp);
 	$s->{'pkey'}  = ACNE::Crypto::RSA->load($key_fp);
+	if ( -e $loc_fp ) {
+		$s->{'location'} = do { local $/; open my $fh, '<', $loc_fp; <$fh> };
+	}
 	$s;
 }
 
@@ -101,6 +106,7 @@ sub save {
 	my $oconf_fp     = catfile($dir, 'csr.conf');
 	my $key_new_fp   = catfile($dir, 'new-key.pem');
 	my $key_fp       = catfile($dir, 'key.pem');
+	my $loc_fp       = catfile($dir, 'location');
 
 	if ( ! -e $dir ) {
 		mkdir $dir, 0700;
@@ -109,6 +115,9 @@ sub save {
 	# Save config, key and certs to store
 	ACNE::Util::File::writeJSON($s->{'conf'}, $conf_fp);
 	ACNE::Util::File::writeJSON(\@chain, $chain_fp);
+	if ( my $loc = $s->{'location'} ) {
+		ACNE::Util::File::writeStr($loc, $loc_fp);
+	}
 	rename $key_new_fp, $key_fp     if -e $key_new_fp;
 	rename $oconf_new_fp, $oconf_fp if -e $oconf_new_fp;
 
@@ -236,8 +245,9 @@ sub issue {
 	my $csr = $s->csrGenerate(@authorized);
 
 	say "Requesting Certificate(s)";
-	my @chain = $ca->new_cert($csr);
-	$s->{'chain'} = \@chain;
+	my ($loc, $chain) = $ca->new_cert($csr);
+	$s->{'chain'} = $chain;
+	$s->{'location'} = $loc;
 
 	1;
 }
