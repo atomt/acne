@@ -1,6 +1,6 @@
 # WARNING
 
-*This is very experimental. Things still change around -a lot-. Some things do not work yet, like renews. There is a certain amount of Not Invented Here still lurking in the code base and error handling is currently not the greatest*
+*This is very experimental. Things still change around -a lot-. Some things do not work yet, like automatic renews. There is a certain amount of Not Invented Here still lurking in the code base and error handling is currently not the greatest*
 
 # acne - a ACME/Let's Encrypt client
 
@@ -10,7 +10,7 @@ When certificates change it can call out to a set of hook scripts. These will us
 
 It supports per certificate settings, like what CA, key parameters and what hooks to invoke, which will be preserved for automatic and manual renews. You could have some certificates issued from an internal PKI, and others from Let's Encrypt for example.
 
-Some of this is working now; we have a working JWS + ACME client library, we can register accounts, submit domains for authorization, write out challenges and get cert + chain.
+Some of this is working now; we have a working JWS + ACME client library, we can register accounts, submit domains for authorization, write out challenges, get cert + chain and do manual renews.
 
 ## Installation
 
@@ -112,9 +112,9 @@ Creates a new entry in our database called `example` with the specified settings
 
 This probably what you actually want, multiple names on a single certificate (SANs)
 
-    acne renew example
+    acne renew <cert1> [<cert2> ..]
 
-Renew the certificate of entry `example` regardless of expiry date using same settings specified when created, including what hooks, CA and so on. *NOT WORKING YET*
+Renew the certificate regardless of expiry date using same settings specified when created, including what hooks, CA and so on.
 
     acne renew-auto
 
