@@ -104,10 +104,11 @@ sub readPairs {
 	$ret;
 }
 
-# XXX also utime
 sub touch {
-	my ($path) = @_;
-	open my $fh, '>>', $path;
+	my ($path, $time) = @_;
+	open my $fh, '>>', $path
+	  if ! -e $path;
+	utime $time, $time, $fh; # undef sets "now"
 	1;
 }
 
