@@ -18,7 +18,7 @@ You probably want to install a couple of dependencies first. We limit our depend
 
 For Ubuntu, Debian and their derivatives, the following should be sufficient
 
-    sudo apt-get install libnet-ssleay-perl openssl
+    sudo apt-get install libio-socket-ssl-perl openssl
 
 To install it from source, unpacked tarball or a git clone, run
 
