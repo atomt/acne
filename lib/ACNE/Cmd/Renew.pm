@@ -12,8 +12,9 @@ use ACNE::CA;
 use Getopt::Long;
 use File::Spec::Functions qw(catdir);
 
+my $cmd;
 sub run {
-	my $cmd = shift @ARGV;
+	$cmd = shift @ARGV;
 
 	my $arg_help;
 	GetOptions(
@@ -114,9 +115,14 @@ sub run {
 
 
 sub usage {
-    my ($exitval) = @_;
-    my $fd = $exitval ? *STDERR : *STDOUT;
-    say $fd 'Usage: acne renew <cert> [<cert2> ..]';
+	my ($exitval) = @_;
+	my $fd = $exitval ? *STDERR : *STDOUT;
+	if ( $cmd eq 'renew-auto' ) {
+		say $fd 'Usage: acne renew-auto';
+	}
+	else {
+		say $fd 'Usage: acne renew <cert> [<cert2> ..]';
+	}
     exit $exitval;
 }
 
