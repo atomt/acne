@@ -76,7 +76,8 @@ sub usage {
     say '       acne account [<ca>] --accept-tos URL';
     say '';
     say 'Creates or updates account at specified Certificate Authority.';
-    say 'If no CA is specified, the default one according to configuraiton is used.';
+    say 'If no CA is specified, the default one according to the configuration is';
+    say 'used.';
     exit 0;
 }
 
