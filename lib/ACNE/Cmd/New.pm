@@ -75,13 +75,6 @@ sub run {
 	my $ca_id      = $cert->getCAId;
 	my $run        = $cert->getRun;
 
-	say sprintf("Using CA %s, run %s, key %s, roll-key %s (on renewals)",
-	  $ca_id,
-	  $run ? join(' ', @$run) : 'none',
-	  $cert->getKeyConf,
-	  $cert->getRollKey
-	);
-
 	my $account = ACNE::Account->new;
 	my $ca = ACNE::CA->new($ca_id, $account->keyInit);
 
@@ -89,22 +82,36 @@ sub run {
 		exit 1;
 	}
 
-	say "Running pre-flight checks";
+	say "** Issuing certificate $id **";
+	say ' Authority ', $ca_id;
+	say ' Names ', join(', ', @arg_dns);
+	say ' Key ', $cert->getKeyConf;
+	say ' Roll key ', $cert->getRollKey ? 'Yes' : 'No';
+	say ' Run ', $run ? join(' ', @$run) : 'none';
+
+	say '';
+	say 'Running pre-flight tests';
 	$cert->preflight;
 
-	say "Authorizing domains at authority";
+	say '';
+	say "Authorizing domains";
 	$cert->authorize($ca);
 
+	say '';
 	say "Issuing certificate";
 	$cert->issue($ca);
 	$cert->save;
-	say "Issued certificate expires ", scalar localtime($cert->getNotAfter), " GMT";
-	say "Automatic renew after ", scalar localtime($cert->getRenewAfter), " GMT";
 
+	say '';
 	say "Installing certificate";
 	$cert->activate;
 
-	say "Running postinst hooks";
+	say '';
+	say "Issued certificate expires ", scalar localtime($cert->getNotAfter), " GMT";
+	say "Automatic renew after ", scalar localtime($cert->getRenewAfter), " GMT";
+
+	say '';
+	say "** Running postinst hooks **";
 	ACNE::Cert::_runpostinst();
 }
 
