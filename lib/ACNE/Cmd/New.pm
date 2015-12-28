@@ -11,7 +11,6 @@ use ACNE::CA;
 
 use Getopt::Long;
 use File::Spec::Functions qw(catdir);
-use HTTP::Tiny;
 
 sub run {
 	my $cmd = shift @ARGV;
