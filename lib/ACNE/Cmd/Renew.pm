@@ -15,6 +15,7 @@ use File::Spec::Functions qw(catdir);
 my $cmd;
 sub run {
 	$cmd = shift @ARGV;
+	my $exitcode = 0;
 
 	my $arg_help;
 	GetOptions(
@@ -43,8 +44,7 @@ sub run {
 
 	chdir catdir(@{$config->{'system'}->{'store'}});
 
-	my %ca;
-	my @loaded;
+
 	my @selected;
 
 	if ( $cmd eq 'renew-auto' ) {
@@ -54,12 +54,14 @@ sub run {
 		@selected = @ARGV;
 	}
 
-	my $account = ACNE::Account->new;
-
 	# Load all certs and their CAs, and run pre-flight to catch errors early
 	say 'Certificates selected for renewal';
 	say ' ', $_ for @selected;
 
+	my $account = ACNE::Account->new;
+
+	my %ca;
+	my @loaded;
 	for my $id ( @selected ) {
 		eval {
 			my $cert = ACNE::Cert->load($id);
@@ -77,6 +79,7 @@ sub run {
 			say STDERR 'ERROR!! Unable to load ', $id;
 			print STDERR $@;
 			say STDERR 'Skipping ', $id;
+			$exitcode = 1;
 		}
 	}
 
@@ -95,6 +98,7 @@ sub run {
 			say STDERR 'ERROR!! Unable to pre-flight test ', $id;
 			print STDERR $@;
 			say STDERR 'Skipping ', $id;
+			$exitcode = 1;
 		}
 	}
 
@@ -138,12 +142,15 @@ sub run {
 			say STDERR 'ERROR!! Unable to process ', $id;
 			print STDERR $@;
 			say STDERR 'Skipping ', $id;
+			$exitcode = 1;
 		}
 	}
 
 	say '';
 	say "** Running postinst hooks **";
 	ACNE::Cert::_runpostinst();
+
+	exit $exitcode;
 }
 
 sub usage_err {
