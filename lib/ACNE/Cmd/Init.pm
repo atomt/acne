@@ -10,6 +10,8 @@ use File::Spec::Functions qw(catdir);
 use English qw(-no_match_vars);
 
 sub run {
+	my $cmd = shift @ARGV;
+
 	my $arg_help;
 	GetOptions(
 	  'help' => \$arg_help
