@@ -51,6 +51,7 @@ sub _post {
 	my $signed = $jws->sign($payload, { nonce => $s->{'nonce'} });
 	my $resp = $http->post($url, { content => $signed });
 	$s->_update_nonce($resp);
+	$s->_check_error($resp);
 	$resp;
 }
 
@@ -60,6 +61,7 @@ sub _get {
 
 	my $resp = $http->get($url);
 	$s->_update_nonce($resp);
+	$s->_check_error($resp);
 	$resp;
 }
 
@@ -74,6 +76,31 @@ sub _update_nonce {
 	else {
 		die "No nonce could be aquired! $resp->{status} $resp->{reason}\n";
 	}
+}
+
+sub _check_error {
+	my ($s, $r) = @_;
+	my ($type, $error);
+	state $re_type = qr/^urn:acme:error:(\w+)$/x;
+
+	if ( !$r->{'success'} ) {
+		my $h = $r->{'headers'};
+		my $t = $h->{'content-type'};
+
+		if ( defined $t && $t eq 'application/problem+json' ) {
+			my $in_data = decode_json($r->{'content'});
+			my $in_type = $in_data->{'type'};
+
+			if ( defined $in_type && $in_type =~ $re_type ) {
+				my $detail = $in_data->{'detail'}; # FIXME SECURITY filter
+				die 'ACME host returned error: ', $detail, " ($1)\n" if defined $detail;
+			}
+		}
+
+		die 'ACME host returned HTTP error: ', $r->{'status'}, ' ', $r->{'reason'}, "\n";
+	}
+
+	1;
 }
 
 sub new_reg {
@@ -94,13 +121,7 @@ sub new_reg {
 	my $tos = do { my $links = _links($r->{'headers'}); $links->{'terms-of-service'} };
 	my $loc = $r->{'headers'}->{'location'};
 
-	if ( $r->{'status'} == 201 ) {
-		say 'Account successfully created';
-	}
-	elsif ( $r->{'status'} == 409 ) {
-		say 'Account already registered';
-	}
-	else {
+	if ( $r->{'status'} != 201 ) {
 		die "Error registering: $r->{status} $r->{reason}\n";
 	}
 
@@ -126,14 +147,9 @@ sub reg {
 	}
 
 	my $r = $s->_post($uri, $req);
-	my $status = $r->{'status'};
 
-	if ( $status == 400 ) {
-		my $data = decode_json($r->{'content'});
-		die "Update rejected by authority:\n", $data->{'detail'}, "\n";
-	}
-	elsif ( $status != 202 ) {
-		die "Error updating: $status $r->{reason}\n";
+	if ( $r->{'status'} != 202 ) {
+		die "Error updating: $r->{status} $r->{reason}\n";
 	}
 
 	1;
