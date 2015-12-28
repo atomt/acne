@@ -4,7 +4,9 @@ use 5.014;
 use warnings FATAL => 'all';
 use autodie;
 
+# Safe-ish environment
 umask 0027;
+$ENV{'PATH'} = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
 
 my $cmd = $ARGV[0];
 
