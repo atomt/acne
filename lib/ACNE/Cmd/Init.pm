@@ -12,9 +12,10 @@ use English qw(-no_match_vars);
 sub run {
 	my $cmd = shift @ARGV;
 
-	my $arg_help;
+	my ($arg_installcron, $arg_help);
 	GetOptions(
-	  'help' => \$arg_help
+	  'install-cron' => \$arg_installcron,
+	  'help'         => \$arg_help
 	) or usage_err();
 
 	if ( $arg_help ) {
@@ -32,11 +33,16 @@ sub run {
 	my $acmeroot = catdir(@{$config->{'challenge'}->{'http01fs'}->{'acmeroot'}});
 	my $user     = $config->{'system'}->{'user'};
 
-	say 'Setting up Acne store to work with current configuration';
-	say '';
-
 	die "Insufficient privilieges, acne init requires root\n"
 	  if $UID != 0;
+
+	if ( $arg_installcron ) {
+		installcron($user);
+		exit 0;
+	}
+
+	say 'Setting up Acne store to work with current configuration';
+	say '';
 
 	# Get user info
 	my ($uid, $gid) = (getpwnam($user))[2,3];
@@ -67,6 +73,26 @@ sub run {
 	systemv('chown', '-R', $uid . ':' . $gid, $store);
 	say '';
 	say 'Acne should be ready for use.';
+}
+
+# Make a crontab entry with fuzzed times
+sub installcron {
+	my ($user) = @_;
+	use Cwd 'abs_path';
+	my $min  = int(rand(60));
+	my $hour = int(rand(24));
+	my $bin  = abs_path($0);
+	my $file = '/etc/cron.d/acne';
+
+	say 'Installing cron.d file as ', $file;
+
+	ACNE::Util::File::writeStr(
+		"MAILTO=root\n\n$min $hour * * * $user if [ -x $bin ]; then $bin renew-auto --cron; fi\n",
+		$file
+	);
+	chmod 0644, $file;
+
+	1;
 }
 
 # Not using perl built-ins is a little silly, but -p and -R is so much easier.
