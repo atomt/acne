@@ -19,22 +19,22 @@ sub run {
 	my $arg_help;
 	GetOptions(
 	  'help' => \$arg_help
-	) or usage(1);
+	) or usage_err();
 
 	if ( $arg_help ) {
-		usage(0);
+		usage();
 	}
 
 	if ( $cmd eq 'renew-auto' ) {
 		if ( @ARGV > 0 ) {
-			say STDERR 'Error: renew-auto takes no certificate names';
-			usage(1);
+			say STDERR 'No extra arguments allowed.';
+			usage_err();
 		}
 	}
 	else {
 		if ( @ARGV == 0 ) {
-			say STDERR 'Error: No certificates specified on command line';
-			usage(1);
+			say STDERR 'No certificate names specified.';
+			usage_err();
 		}
 	}
 
@@ -146,17 +146,23 @@ sub run {
 	ACNE::Cert::_runpostinst();
 }
 
+sub usage_err {
+	say STDERR 'Try \'acne ', $cmd, ' --help\' for more information.';
+	exit 1;
+}
 
 sub usage {
-	my ($exitval) = @_;
-	my $fd = $exitval ? *STDERR : *STDOUT;
 	if ( $cmd eq 'renew-auto' ) {
-		say $fd 'Usage: acne renew-auto';
+		say 'Usage: acne renew-auto';
+		say '';
+		say 'Automatically renews certificates getting close to their expiry time';
 	}
 	else {
-		say $fd 'Usage: acne renew <cert> [<cert2> ..]';
+		say 'Usage: acne renew <certname1> [<certname2> ..]';
+		say '';
+		say 'Renews specified certificates.';
 	}
-    exit $exitval;
+    exit 0;
 }
 
 1;

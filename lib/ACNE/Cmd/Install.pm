@@ -16,15 +16,15 @@ sub run {
 	my $arg_help;
 	GetOptions(
 	  'help' => \$arg_help
-	) or usage(1);
+	) or usage_err();
 
 	if ( $arg_help ) {
-		usage(0);
+		usage();
 	}
 
 	if ( @ARGV == 0 ) {
-		say STDERR 'Error: No certificates specified on command line';
-		usage(1);
+		say STDERR 'No certificates specified on command line';
+		usage_err();
 	}
 
 	ACNE::Common::config();
@@ -46,11 +46,17 @@ sub run {
 	ACNE::Cert::_runpostinst();
 }
 
+sub usage_err {
+	say STDERR 'Try \'acne install --help\' for more information.';
+	exit 1;
+}
+
 sub usage {
-    my ($exitval) = @_;
-    my $fd = $exitval ? *STDERR : *STDOUT;
-    say $fd 'Usage: acne install <cert> [<cert2> ..]';
-    exit $exitval;
+    say 'Usage: acne install <certname1> [<certname2> ..]';
+	say '';
+	say 'Re-installs already issued certificate. Useful if something went wrong';
+	say 'with certificate installation during new or renew';
+    exit 0;
 }
 
 1;

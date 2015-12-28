@@ -9,22 +9,34 @@ umask 0027;
 my $cmd = $ARGV[0];
 
 my %commands = (
+	'help'       => 'ACNE::Cmd::Help',
 	'init'       => 'ACNE::Cmd::Init',
 	'account'    => 'ACNE::Cmd::Account',
 	'new'        => 'ACNE::Cmd::New',
-	'help'       => 'ACNE::Cmd::Help',
 	'renew'      => 'ACNE::Cmd::Renew',
 	'renew-auto' => 'ACNE::Cmd::Renew',
-	'revoke'     => 'ACNE::Cmd::Revoke',
 	'install'    => 'ACNE::Cmd::Install',
 );
 
-my $class = $commands{$cmd} || cmderr();
-my $file = $class; $file =~ s!::!/!g;
-require $file . '.pm';
-$class->run();
+if ( !defined $cmd ) {
+	say STDERR 'No command specified.';
+	usage_err();
+}
+elsif ( $cmd eq '--help' ) {
+	$cmd = 'help';
+}
 
-sub cmderr {
-	say STDERR "Aeeee!";
+if ( my $class = $commands{$cmd} ) {
+	my $file = $class; $file =~ s!::!/!g;
+	require $file . '.pm';
+	$class->run();
+}
+else {
+	say STDERR 'Unknown command specified.';
+	usage_err();
+}
+
+sub usage_err {
+	say STDERR 'Try \'acne --help\' for more information.';
 	exit 1;
 }

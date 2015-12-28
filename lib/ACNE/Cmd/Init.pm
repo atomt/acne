@@ -5,10 +5,25 @@ use warnings FATAL => 'all';
 use autodie;
 
 use ACNE::Common qw($config);
+use Getopt::Long;
 use File::Spec::Functions qw(catdir);
 use English qw(-no_match_vars);
 
 sub run {
+	my $arg_help;
+	GetOptions(
+	  'help' => \$arg_help
+	) or usage_err();
+
+	if ( $arg_help ) {
+		usage();
+	}
+
+	if ( @ARGV ) {
+		say STDERR 'This command takes no parameters.';
+		usage_err();
+	}
+
 	ACNE::Common::config();
 
 	my $store    = catdir(@{$config->{'system'}->{'store'}});
@@ -61,6 +76,18 @@ sub mkdirv {
 sub systemv {
 	say 'run: ', join ' ', @_;
 	system(@_);
+}
+
+sub usage_err {
+	say STDERR 'Try \'acne init --help\' for more information.';
+	exit 1;
+}
+
+sub usage {
+    say 'Usage: acne init';
+	say '';
+	say 'Sets up store according to configuration.';
+    exit 0;
 }
 
 1;

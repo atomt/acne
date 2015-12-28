@@ -21,12 +21,23 @@ use Getopt::Long;
 sub run {
     my $cmd   = shift @ARGV;
 
-    my ($register, $accept_tos);
+    my ($register, $accept_tos, $arg_help);
     GetOptions(
       'register'     => \$register,
-  	  'accept-tos=s' => \$accept_tos
-    ) or usage(1);
+      'accept-tos=s' => \$accept_tos,
+      'help'         => \$arg_help
+	) or usage_err();
+
     my $ca_id = shift @ARGV;
+
+    if ( $arg_help ) {
+		usage();
+	}
+
+    if ( @ARGV ) {
+        say STDERR "Unknown arguments.";
+        usage_err();
+    }
 
     ACNE::Common::config();
     ACNE::Common::drop_privs();
@@ -55,13 +66,18 @@ sub run {
     1;
 }
 
-sub usage {
-    my ($exitval) = @_;
-    my $fd = $exitval ? *STDERR : *STDOUT;
-    say $fd 'Usage: acne account <ca>';
-    say $fd '       acne account <ca> --accept-tos URL';
+sub usage_err {
+	say STDERR 'Try \'acne account --help\' for more information.';
+	exit 1;
+}
 
-    exit $exitval;
+sub usage {
+    say 'Usage: acne account [<ca>]';
+    say '       acne account [<ca>] --accept-tos URL';
+    say '';
+    say 'Creates or updates account at specified Certificate Authority.';
+    say 'If no CA is specified, the default one according to configuraiton is used.';
+    exit 0;
 }
 
 1;
