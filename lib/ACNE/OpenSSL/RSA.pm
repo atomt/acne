@@ -14,8 +14,13 @@ use IPC::Open3;
 sub generate_key {
 	my ($class, $arg_bits) = @_;
 
-	open my $fh, '-|', 'openssl', 'genrsa', $arg_bits;
-	my $pem = do { local $/; <$fh> };
+	my ($writer, $reader);
+	open my $null, '>', '/dev/null';
+	my $pid = open3($writer, $reader, $null, 'openssl', 'genrsa', $arg_bits);
+	my $pem = do { local $/; <$reader> };
+	waitpid($pid, 0);
+	my $exitval = $? >> 8;
+	die "openssl genrsa exit $exitval" if $exitval != 0;
 
 	my ($bits, $params) = _parseKey($pem);
 
@@ -37,7 +42,7 @@ sub new_private_key {
 		bits    => $bits,
 		pem     => $pem,
 		params  => $params
-	} => $class;	
+	} => $class;
 }
 
 # n e d p q dp dq qi
