@@ -51,7 +51,15 @@ sub run {
 
     # Register if not registered or --register set
     if ( !$account->_registered($ca_id) or $register ) {
-        $account->ca_register($ca, $ca_id);
+        eval { $account->ca_register($ca, $ca_id) };
+        if ( $@ ) {
+            if ( $@ =~ /^ACME host returned error: Registration key is already in use/ ) {
+                say 'Account already registered.';
+            }
+            else {
+                die $@;
+            }
+        }
 
         # Send an update with ToS if requested
         if ( $accept_tos ) {
