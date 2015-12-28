@@ -82,12 +82,19 @@ sub run {
 
 	# Renew and install
 	for my $cert ( @loaded ) {
-		my $id = $cert->getId;
+		my $id    = $cert->getId;
 		my $ca_id = $cert->getCAId;
+		my $dns   = $cert->getDNS;
+		my $run   = $cert->getRun;
 
 		say '';
 		say "** Renewing certificate $id **";
-		say "Certificate Authority is $ca_id";
+		say ' Authority ', $ca_id;
+		say ' Names ', join(', ', @$dns);
+		say ' Key ', $cert->getKeyConf;
+		say ' Roll key ', $cert->getRollKey ? 'Yes' : 'No';
+		say ' Run ', $run ? join(' ', @$run) : 'none';
+		say '';
 
 		my $ca = $ca{$ca_id};
 		eval {

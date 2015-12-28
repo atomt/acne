@@ -421,6 +421,7 @@ sub getCAId       { $_[0]->{'combined'}->{'ca'}; }
 sub getKeyConf    { $_[0]->{'combined'}->{'key'}; }
 sub getRollKey    { $_[0]->{'combined'}->{'roll-key'}; }
 sub getRun        { $_[0]->{'combined'}->{'run'}; }
+sub getDNS        { $_[0]->{'combined'}->{'dns'}; }
 sub getNotAfter   { $_[0]->{'notafter'}; }
 sub getRenewAfter { $_[0]->{'renew'}; }
 
