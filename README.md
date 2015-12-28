@@ -116,7 +116,7 @@ This probably what you actually want, multiple names on a single certificate (SA
 
 Renew the certificate regardless of expiry date using same settings specified when created, including what hooks, CA and so on.
 
-    acne renew-auto
+    acne renew-auto [--cron]
 
 Renew all certificates in the store close to their expiry date as defined by defaults.renew-left DAYS in the configuration or --renew-left DAYS on new.
 

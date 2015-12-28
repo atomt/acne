@@ -17,8 +17,9 @@ sub run {
 	$cmd = shift @ARGV;
 	my $exitcode = 0;
 
-	my $arg_help;
+	my ($arg_cron, $arg_help);
 	GetOptions(
+	  'cron' => \$arg_cron,
 	  'help' => \$arg_help
 	) or usage_err();
 
@@ -33,6 +34,11 @@ sub run {
 		}
 	}
 	else {
+		if ( $arg_cron ) {
+			say STDERR 'Unknown option: cron';
+			usage_err();
+		}
+
 		if ( @ARGV == 0 ) {
 			say STDERR 'No certificate names specified.';
 			usage_err();
@@ -54,9 +60,21 @@ sub run {
 		@selected = @ARGV;
 	}
 
+
 	# Load all certs and their CAs, and run pre-flight to catch errors early
-	say 'Certificates selected for renewal';
-	say ' ', $_ for @selected;
+	if ( !$arg_cron ) {
+		if ( @selected ) {
+			say 'Certificates selected for renewal';
+			say ' ', $_ for @selected;
+		}
+		else {
+			say 'No certificates selected';
+		}
+	}
+
+	if ( @selected == 0 ) {
+		exit 0;
+	}
 
 	my $account = ACNE::Account->new;
 
@@ -160,9 +178,15 @@ sub usage_err {
 
 sub usage {
 	if ( $cmd eq 'renew-auto' ) {
-		say 'Usage: acne renew-auto';
+		say 'Usage: acne renew-auto [--cron]';
 		say '';
 		say 'Automatically renews certificates getting close to their expiry time';
+		say '';
+		say 'Options:';
+		say '';
+		say ' --cron';
+		say '   Keeps it quiet unless there are certificates to process';
+		say '';
 	}
 	else {
 		say 'Usage: acne renew <certname1> [<certname2> ..]';
