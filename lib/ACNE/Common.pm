@@ -147,8 +147,6 @@ sub drop_privs {
 		return;
 	}
 
-	say "Changing to user $user";
-
 	# Actually change, twice, and in a special order, because some
 	# platforms do not close all the doors back to previous uid otherwise
 	($GID) = @gids; $EGID = join(' ', @gids); $EUID = $UID = $uid;
