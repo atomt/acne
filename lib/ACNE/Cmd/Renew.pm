@@ -60,17 +60,24 @@ sub run {
 	say 'Certificates selected for renewal';
 	say ' ', $_ for @selected;
 
-	for my $cert_id ( @selected ) {
-		my $cert = ACNE::Cert->load($cert_id);
-		my $ca_id = $cert->getCAId;
-		if ( !exists $ca{$ca_id} ) {
-			if ( !$account->registered($ca_id) ) {
-				die;
+	for my $id ( @selected ) {
+		eval {
+			my $cert = ACNE::Cert->load($id);
+			my $ca_id = $cert->getCAId;
+			if ( !exists $ca{$ca_id} ) {
+				if ( !$account->registered($ca_id) ) {
+					die;
+				}
+				$ca{$ca_id} = ACNE::CA->new($ca_id, $account->keyInit);
 			}
-
-			$ca{$ca_id} = ACNE::CA->new($ca_id, $account->keyInit);
+			push @loaded, $cert;
+		};
+		if ( $@ ) {
+			say STDOUT '';
+			say STDERR 'ERROR!! Unable to load ', $id;
+			print STDERR $@;
+			say STDERR 'Skipping ', $id;
 		}
-		push @loaded, $cert;
 	}
 
 	say '';
@@ -116,7 +123,10 @@ sub run {
 
 		};
 		if ( $@ ) {
-			print STDERR "$id FAIL! $@";
+			say STDOUT '';
+			say STDERR 'ERROR!! Unable to process ', $id;
+			print STDERR $@;
+			say STDERR 'Skipping ', $id;
 		}
 	}
 
