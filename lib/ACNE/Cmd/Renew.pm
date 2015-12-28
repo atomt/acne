@@ -82,13 +82,24 @@ sub run {
 
 	say '';
 	say '** Running pre-flight tests **';
+	my @checked;
 	for my $cert ( @loaded ) {
-		say $cert->getId;
-		$cert->preflight;
+		my $id = $cert->getId;
+		say $id;
+		eval {
+			$cert->preflight;
+			push @checked, $cert;
+		};
+		if ( $@ ) {
+			say STDOUT '';
+			say STDERR 'ERROR!! Unable to pre-flight test ', $id;
+			print STDERR $@;
+			say STDERR 'Skipping ', $id;
+		}
 	}
 
 	# Renew and install
-	for my $cert ( @loaded ) {
+	for my $cert ( @checked ) {
 		my $id    = $cert->getId;
 		my $ca_id = $cert->getCAId;
 		my $dns   = $cert->getDNS;
