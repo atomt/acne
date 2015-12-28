@@ -101,14 +101,19 @@ sub run {
 			say "Authorizing domains";
 			$cert->authorize($ca);
 
+			say '';
 			say "Issuing certificate";
 			$cert->issue($ca);
 			$cert->save;
-			say "Issued certificate expires ", scalar localtime($cert->getNotAfter), " GMT"; # ;)
-			say "Automatic renew after ", scalar localtime($cert->getRenewAfter), " GMT";
 
+			say '';
 			say "Installing certificate";
 			$cert->activate;
+
+			say '';
+			say "Certificate expires ", scalar localtime($cert->getNotAfter), " GMT"; # ;)
+			say "Automatic renew after ", scalar localtime($cert->getRenewAfter), " GMT";
+
 		};
 		if ( $@ ) {
 			print STDERR "$id FAIL! $@";
