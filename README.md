@@ -81,7 +81,7 @@ If everything is in order, you should be able to request a certificate, a -d for
 
 And it should show up under `/var/lib/acne/live/example/` as `cert.pem`, `chain.pem`, `fullchain.pem` and `key.pem`. Then it's just a matter of pointing the service to the correct files.
 
-Make your system run `acne renew-auto` on a daily or weekly basis. This will auto-renew certificates that are close to their expiry. Any problems will go out to standard error.
+Make your system run `acne renew-auto --cron` on a daily or weekly basis. This will auto-renew certificates that are close to their expiry. Any problems will go out to standard error.
 
 ## Security
 
