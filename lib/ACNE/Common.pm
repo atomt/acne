@@ -30,7 +30,7 @@ my $defaults_validator = ACNE::Validator->new(
 		validator => [\&ACNE::Validator::INT, 1, 356]
 	},
 	'ca'         => {
-		default   => 'letsencrypt-staging',
+		default   => 'letsencrypt',
 		validator => [\&ACNE::Validator::WORD]
 	},
 	'key'        => {
