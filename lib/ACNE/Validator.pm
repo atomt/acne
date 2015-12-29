@@ -7,22 +7,31 @@ use autodie;
 use File::Spec::Functions qw(splitdir);
 
 sub WORD {
-	my ($in) = @_;
 	state $re = qr/^([\w\-]+)$/;
 	my $out;
 
-	die "input \"$in\" is not a word\n"
-	  if !(($out) = $in =~ $re);
+	die 'input "', printable($_[0]), '" is not a word', "\n"
+	  if !(($out) = $_[0] =~ $re);
 
 	$out;
 };
+
+sub PRINTABLE {
+	state $re = qr/^(\p{PosixPrint}+)$/x;
+	my $out;
+
+	die "input contains non-printable characters\n"
+	  if !(($out) = $_[0] =~ $re);
+
+	$out;
+}
 
 sub INT {
 	my ($in, $min, $max) = @_;
 	state $re = qr/^(\d+)$/;
 	my $out;
 
-	die "input \"$in\" is not numeric\n"
+	die 'input "', printable($in), '" is not numeric', "\n"
 	  if !(($out) = $in =~ $re);
 
 	die "input \"$in\" is below allowed range ($in <= $min)\n"
@@ -40,7 +49,7 @@ sub REGEX {
 		return @r == 1 ? $r[0] : \@r;
 	}
 
-	die "input \"$in\" failed regex $re\n";
+	die 'input "', printable($in), '" failed regex ', $re, "\n";
 };
 
 sub BOOL {
@@ -75,10 +84,15 @@ sub process {
 		my @validator = @{$v->{'validator'}};
 		#my $validator = $v->{'validator'};
 		my $callback  = shift @validator;
-		
+
 		if ( my $in = delete $data->{$k} ) {
-			$ret->{$k} = eval { $callback->($in, @validator) };
-			push @errors, $@ if $@;
+			$ret->{$k} = eval {
+				if ( ref $in ne '' ) {
+					die "input not a scalar value\n";
+				}
+				$callback->($in, @validator)
+			};
+			push @errors, "key \"$k\": $@" if $@;
 		}
 		else {
 			if ( exists $v->{'default'} ) {
@@ -91,7 +105,7 @@ sub process {
 
 	}
 
-	push @errors, "unknown key \"$_\"\n"
+	push @errors, 'unknown key "' . printable($_) . '"' . "\n"
 	  for keys %$data;
 
 	# Golang style error handling - return what we have ;-)
@@ -102,6 +116,13 @@ sub process {
 	# Traditional fuck-all
 	die @errors if @errors;
 	$ret;
+}
+
+
+sub printable {
+	state $re = qr/[^\p{PosixPrint}]/x;
+	$_[0] =~ s/$re/#/g;
+	$_[0];
 }
 
 1;
