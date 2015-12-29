@@ -5,10 +5,25 @@ use warnings FATAL => 'all';
 use autodie;
 use Carp qw(croak carp);
 
+use ACNE::Validator;
+
 use ACME::Client::JWS;
 use JSON::PP;
 use HTTP::Tiny;
 use MIME::Base64 qw(encode_base64 encode_base64url);
+
+my $https_uri = { validator => [\&ACNE::Validator::REGEX, qr!^(https://.*)$!x] };
+my $directory_validator = ACNE::Validator->new(
+	'new-authz'   => $https_uri,
+	'new-cert'    => $https_uri,
+	'new-reg'     => $https_uri,
+	'revoke-cert' => $https_uri
+);
+my $error_validator = ACNE::Validator->new(
+	'type'        => { validator => [\&ACNE::Validator::REGEX, qr/^urn:acme:error:(\w+)$/x] },
+	'detail'      => { validator => [\&ACNE::Validator::PRINTABLE] },
+	'status'      => { validator => [\&ACNE::Validator::INT] }
+);
 
 sub new {
 	my ($class, %args) = @_;
@@ -35,7 +50,7 @@ sub new {
 
 	# Load directory, containing uris for each api request
 	my $r = $s->_get('https://' . $address . '/directory');
-	$s->{'directory'} = decode_json($r->{'content'});
+	$s->{'directory'} = $directory_validator->process(decode_json($r->{'content'}));
 
 	$s;
 }
@@ -80,21 +95,17 @@ sub _update_nonce {
 
 sub _check_error {
 	my ($s, $r) = @_;
-	my ($type, $error);
-	state $re_type = qr/^urn:acme:error:(\w+)$/x;
 
 	if ( !$r->{'success'} ) {
 		my $h = $r->{'headers'};
 		my $t = $h->{'content-type'};
 
 		if ( defined $t && $t eq 'application/problem+json' ) {
-			my $in_data = decode_json($r->{'content'});
-			my $in_type = $in_data->{'type'};
-
-			if ( defined $in_type && $in_type =~ $re_type ) {
-				my $detail = $in_data->{'detail'}; # FIXME SECURITY filter
-				die 'ACME host returned error: ', $detail, " ($1)\n" if defined $detail;
+			my ($data, $err) = $error_validator->process(decode_json($r->{'content'}));
+			if ( defined $err ) {
+				die "Authority returned an error but the error is bogus!\n", @$err;
 			}
+			die 'ACME host returned error: ', $data->{'detail'}, ' (', $data->{'type'}, ")\n";
 		}
 
 		die 'ACME host returned HTTP error: ', $r->{'status'}, ' ', $r->{'reason'}, "\n";
