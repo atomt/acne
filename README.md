@@ -12,7 +12,7 @@ It supports per certificate settings, like what CA, key parameters and what hook
 
 Some of this is working now; we have a working JWS + ACME client library, we can register accounts, submit domains for authorization, write out challenges, get cert + chain and do manual renews.
 
-## Installation
+## Installation from source
 
 You probably want to install a couple of dependencies first. We limit our dependencies to what is available in distributions security supported repositories.
 
@@ -20,18 +20,26 @@ For Ubuntu, Debian and their derivatives, the following should be sufficient
 
     sudo apt-get install libio-socket-ssl-perl openssl
 
-To install it from source, unpacked tarball or a git clone, run
+If you have cpanminus installed, install directly from github
+
+    sudo cpanm git://github.com/atomt/acne.git
+
+Or to install it from source, unpacked tarball or a git clone, run
 
     perl Build.PL
     ./Build
     sudo ./Build install
-    sudo acne init
 
-This will install it into `/usr/local` on most systems with configuration in `/etc/acne` and its internal certificate database in `/var/lib/acne`. `acne init` sets up the certificate database directory.
+This will install it into `/usr/local` on most systems with configuration in `/etc/acne` and its internal certificate store in `/var/lib/acne`.
+
+After installation, run
+
+    sudo acne init
+    sudo acne init --install-cron
+
+To set up the certificate store and install the crontab in /etc/cron.d. Make sure email to root is sent somewhere if you want to stay on top of renew failures.
 
 ## Quick start
-
-*THIS EARLY IN DEVELOPMENT WE DEFAULT TO USING THE LET'S ENCRYPT STAGING API. THIS API DO NOT ISSUE GLOBALLY TRUSTED CERTIFICATES. SET defaults.ca letsencrypt IN THE CONFIGURATION FILE OR USE --ca letsencrypt FOR acne new TO GET PROPER CERTIFICATES*
 
 We'll use nginx as the example here. It's fairly straight forward to adapt it to other web servers and services.
 
@@ -80,8 +88,6 @@ If everything is in order, you should be able to request a certificate, a -d for
     sudo acne new example -d example.com -d www.example.com
 
 And it should show up under `/var/lib/acne/live/example/` as `cert.pem`, `chain.pem`, `fullchain.pem` and `key.pem`. Then it's just a matter of pointing the service to the correct files.
-
-Make your system run `acne renew-auto --cron` on a daily or weekly basis. This will auto-renew certificates that are close to their expiry. Any problems will go out to standard error.
 
 ## Security
 
