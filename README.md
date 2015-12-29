@@ -10,8 +10,6 @@ When certificates change it can call out to a set of hook scripts. These will us
 
 It supports per certificate settings, like what CA, key parameters and what hooks to invoke, which will be preserved for automatic and manual renews. You could have some certificates issued from an internal PKI, and others from Let's Encrypt for example.
 
-Some of this is working now; we have a working JWS + ACME client library, we can register accounts, submit domains for authorization, write out challenges, get cert + chain and do manual renews.
-
 ## Installation from source
 
 You probably want to install a couple of dependencies first. We limit our dependencies to what is available in distributions security supported repositories.
