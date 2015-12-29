@@ -37,7 +37,7 @@ sub run {
 	  if $UID != 0;
 
 	if ( $arg_installcron ) {
-		installcron($user);
+		installcron();
 		exit 0;
 	}
 
@@ -77,7 +77,6 @@ sub run {
 
 # Make a crontab entry with fuzzed times
 sub installcron {
-	my ($user) = @_;
 	use Cwd 'abs_path';
 	my $min  = int(rand(60));
 	my $hour = int(rand(24));
@@ -87,7 +86,7 @@ sub installcron {
 	say 'Installing cron.d file as ', $file;
 
 	ACNE::Util::File::writeStr(
-		"MAILTO=root\n\n$min $hour * * * $user if [ -x $bin ]; then $bin renew-auto --cron; fi\n",
+		"MAILTO=root\n\n$min $hour * * * root if [ -x $bin ]; then $bin renew-auto --cron; fi\n",
 		$file
 	);
 	chmod 0644, $file;
