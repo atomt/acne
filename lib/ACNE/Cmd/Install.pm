@@ -6,6 +6,7 @@ use autodie;
 
 use ACNE::Common qw($config);
 use ACNE::Cert;
+use ACNE::Validator;
 
 use Getopt::Long;
 use File::Spec::Functions qw(catdir);
@@ -31,6 +32,8 @@ sub run {
 	ACNE::Common::drop_privs();
 
 	chdir catdir(@{$config->{'system'}->{'store'}});
+
+	$_ = ACNE::Validator::WORD($_) for @ARGV;
 
 	for my $id ( @ARGV ) {
 		say "Installing $id";

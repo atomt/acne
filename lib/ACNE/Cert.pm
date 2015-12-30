@@ -92,7 +92,19 @@ sub load {
 
 	my $conf = ACNE::Util::File::readJSON($conf_fp);
 	my $s = _new($class, $id, $conf);
-	$s->{'chain'} = ACNE::Util::File::readJSON($chain_fp);
+
+	my $chain = ACNE::Util::File::readJSON($chain_fp);
+	# Needs untainting even though we wrote it :)
+	for my $c ( @$chain ) {
+		if ( $c =~ /^([\w\s\r\n-_=]+)$/ ) {
+			$c = $1;
+		}
+		else {
+			die "$chain_fp looks wonky";
+		}
+	}
+	$s->{'chain'} = $chain;
+
 	$s->{'pkey'}  = ACNE::Crypto::RSA->load($key_fp);
 	if ( -e $loc_fp ) {
 		$s->{'location'} = do { local $/; open my $fh, '<', $loc_fp; <$fh> };
