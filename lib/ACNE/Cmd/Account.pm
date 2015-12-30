@@ -7,6 +7,7 @@ use autodie;
 use ACNE::Common qw($config);
 use ACNE::CA;
 use ACNE::Account;
+use ACNE::Validator;
 
 use Getopt::Long;
 
@@ -43,7 +44,10 @@ sub run {
     ACNE::Common::drop_privs();
 
     if ( !defined $ca_id ) {
-      $ca_id = $config->{'defaults'}->{'ca'};
+        $ca_id = $config->{'defaults'}->{'ca'};
+    }
+    else {
+        $ca_id = ACNE::Validator::WORD($ca_id);
     }
 
     my $account = ACNE::Account->new;
@@ -51,15 +55,7 @@ sub run {
 
     # Register if not registered or --register set
     if ( !$account->_registered($ca_id) or $register ) {
-        eval { $account->ca_register($ca, $ca_id) };
-        if ( $@ ) {
-            if ( $@ =~ /^ACME host returned error: Registration key is already in use/ ) {
-                say 'Account already registered.';
-            }
-            else {
-                die $@;
-            }
-        }
+        $account->ca_register($ca, $ca_id);
 
         # Send an update with ToS if requested
         if ( $accept_tos ) {
