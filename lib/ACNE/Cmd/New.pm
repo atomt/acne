@@ -8,6 +8,7 @@ use ACNE::Common qw($config);
 use ACNE::Account;
 use ACNE::Cert;
 use ACNE::CA;
+use ACNE::Validator;
 
 use Getopt::Long;
 use File::Spec::Functions qw(catdir);
@@ -46,6 +47,7 @@ sub run {
 		say STDERR 'No certificate name specified.';
 		usage_err();
 	}
+	$id = ACNE::Validator::WORD($id);
 
 	if ( @arg_run and $arg_no_run ) {
 		say STDERR '--run and --no-run together does not make sense.';

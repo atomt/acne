@@ -8,6 +8,7 @@ use ACNE::Common qw($config);
 use ACNE::Account;
 use ACNE::Cert;
 use ACNE::CA;
+use ACNE::Validator;
 
 use Getopt::Long;
 use File::Spec::Functions qw(catdir);
@@ -60,6 +61,7 @@ sub run {
 		@selected = @ARGV;
 	}
 
+	$_ = ACNE::Validator::WORD($_) for @selected;
 
 	# Load all certs and their CAs, and run pre-flight to catch errors early
 	if ( !$arg_cron ) {
