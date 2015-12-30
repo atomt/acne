@@ -259,6 +259,10 @@ sub authorize {
 		croak "No dns names was successfully tested";
 	}
 
+	# FIXME
+	# domainAUth should be split into get+write challenges, notify CA and poll
+	# status parts. this would make it faster. but check limits first, say
+	# outstanding challenges.
 	for my $domain ( @tested ) {
 		eval { $s->domainAuth($ca, $domain) };
 		if ( $@ ) {

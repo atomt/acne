@@ -12,6 +12,7 @@ use JSON::PP;
 use HTTP::Tiny;
 use MIME::Base64 qw(encode_base64 encode_base64url);
 
+# Lock directory to HTTPS
 my $https_uri = { validator => [\&ACNE::Validator::REGEX, qr!^(https://.*)$!x] };
 my $directory_validator = ACNE::Validator->new(
 	'new-authz'   => $https_uri,
@@ -19,6 +20,7 @@ my $directory_validator = ACNE::Validator->new(
 	'new-reg'     => $https_uri,
 	'revoke-cert' => $https_uri
 );
+# Stuff we output to terminal, so be careful.
 my $error_validator = ACNE::Validator->new(
 	'type'        => { validator => [\&ACNE::Validator::REGEX, qr/^urn:acme:error:(\w+)$/x] },
 	'detail'      => { validator => [\&ACNE::Validator::PRINTABLE] },
