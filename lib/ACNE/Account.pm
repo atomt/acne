@@ -94,21 +94,23 @@ sub ca_register {
 	my ($s, $ca, $ca_id) = @_;
 	my $dir     = $s->{'dir'};
 	my $tosp_fp = catfile($dir, 'agreement.pending.' . $ca_id);
-	my $loc_fp  = catfile($dir, 'location.'   . $ca_id);
+	my $loc_fp  = catfile($dir, 'location.' . $ca_id);
 	my $conf    = $s->{'conf'};
 	my $email   = $conf->{'email'};
 	my $tel     = $conf->{'tel'};
 
 	# CA request
-	my ($location, $toslocation) = $ca->new_reg(email => $email, tel => $tel);
+	my ($created, $location, $toslocation) = $ca->new_reg(email => $email, tel => $tel);
+
+	say '';
+	say $created ? 'Account created.' : 'Account already exists.';
+	say '';
 
 	# Record account location, also serves as a registered flag
 	ACNE::Util::File::writeStr($location, $loc_fp);
 
 	if ( $toslocation ) {
-		open my $tos_fh, '>', $tosp_fp;
-		print $tos_fh $toslocation;
-		say '';
+		ACNE::Util::File::writeStr($toslocation, $tosp_fp);
 		say 'Certificate Authority requested acceptance of a Terms of Service located at';
 		say $toslocation;
 		say '';

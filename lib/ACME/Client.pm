@@ -66,7 +66,6 @@ sub _post {
 	my $signed = $jws->sign($payload, { nonce => $s->{'nonce'} });
 	my $resp = $http->post($url, { content => $signed });
 	$s->_update_nonce($resp);
-	$s->_check_error($resp);
 	$resp;
 }
 
@@ -76,7 +75,6 @@ sub _get {
 
 	my $resp = $http->get($url);
 	$s->_update_nonce($resp);
-	$s->_check_error($resp);
 	$resp;
 }
 
@@ -93,31 +91,13 @@ sub _update_nonce {
 	}
 }
 
-sub _check_error {
-	my ($s, $r) = @_;
 
-	if ( !$r->{'success'} ) {
-		my $h = $r->{'headers'};
-		my $t = $h->{'content-type'};
-
-		if ( defined $t && $t eq 'application/problem+json' ) {
-			my ($data, $err) = $error_validator->process(decode_json($r->{'content'}));
-			if ( defined $err ) {
-				die "Authority returned an error but the error is bogus!\n", @$err;
-			}
-			die 'ACME host returned error: ', $data->{'detail'}, ' (', $data->{'type'}, ")\n";
-		}
-
-		die 'ACME host returned HTTP error: ', $r->{'status'}, ' ', $r->{'reason'}, "\n";
-	}
-
-	1;
-}
 
 sub new_reg {
 	my ($s, %args) = @_;
-	my $email = $args{'email'};
-	my $tel   = $args{'tel'};
+	my $email   = $args{'email'};
+	my $tel     = $args{'tel'};
+	my $created = 0;
 
 	my @contact;
 	push @contact, 'mailto:' . $email if defined $email;
@@ -129,14 +109,23 @@ sub new_reg {
 	}
 
 	my $r = $s->_post($s->directory('new-reg'), $req);
+
+	my $status = $r->{'status'};
+	if ( $status == 201 ) {
+		$created = 1;
+	}
+	elsif ( $status != 409 ) {
+		_check_error($r);
+		die "Error registering: $status $r->{reason}\n";
+	}
+
 	my $tos = do { my $links = _links($r->{'headers'}); $links->{'terms-of-service'} };
 	my $loc = $r->{'headers'}->{'location'};
 
-	if ( $r->{'status'} != 201 ) {
-		die "Error registering: $r->{status} $r->{reason}\n";
-	}
+	$tos = ACNE::Validator::PRINTABLE($tos) if defined $tos;
+	$loc = ACNE::Validator::PRINTABLE($loc) if defined $loc;
 
-	($loc, $tos);
+	($created, $loc, $tos);
 }
 
 sub reg {
@@ -160,6 +149,7 @@ sub reg {
 	my $r = $s->_post($uri, $req);
 
 	if ( $r->{'status'} != 202 ) {
+		_check_error($r);
 		die "Error updating: $r->{status} $r->{reason}\n";
 	}
 
@@ -180,6 +170,7 @@ sub new_authz {
 	my $r = $s->_post($s->directory('new-authz'), $req);
 
 	if ( $r->{'status'} != 201 ) {
+		_check_error($r);
 		die "Error requesting challenge: $r->{status} $r->{reason}\n";
 	}
 
@@ -204,6 +195,7 @@ sub challenge {
 
 	my $r = $s->_post($url, $req);
 	if ( $r->{'status'} != 202 ) {
+		_check_error($r);
 		die "Error triggering challenge: $r->{status} $r->{reason}\n";
 	}
 
@@ -230,6 +222,7 @@ sub challengePoll {
 	my $r = $s->_get($url);
 
 	if ( $r->{'status'} != 202 ) {
+		_check_error($r);
 		die "Error polling challenge: $r->{status} $r->{reason}\n";
 	}
 
@@ -248,6 +241,7 @@ sub new_cert {
 	my $r = $s->_post($s->directory('new-cert'), $req);
 
 	if ( $r->{'status'} != 201 ) {
+		_check_error($r);
 		die "Error signing certificate: $r->{status} $r->{reason}\n";
 	}
 
@@ -261,6 +255,27 @@ sub new_cert {
 	$s->_cert_walk_link($uri, \@chain);
 
 	($loc, \@chain);
+}
+
+sub _check_error {
+	my ($r) = @_;
+
+	if ( !$r->{'success'} ) {
+		my $h = $r->{'headers'};
+		my $t = $h->{'content-type'};
+
+		if ( defined $t && $t eq 'application/problem+json' ) {
+			my ($data, $err) = $error_validator->process(decode_json($r->{'content'}));
+			if ( defined $err ) {
+				die "Authority returned an error but the error is bogus!\n", @$err;
+			}
+			die 'ACME host returned error: ', $data->{'detail'}, ' (', $data->{'type'}, ")\n";
+		}
+
+		die 'ACME host returned HTTP error: ', $r->{'status'}, ' ', $r->{'reason'}, "\n";
+	}
+
+	1;
 }
 
 sub _cert_walk_link {
@@ -286,6 +301,7 @@ sub _cert_get {
 	my $r = $http->get($uri);
 
 	if ( $r->{'status'} != 200 ) {
+		_check_error($r);
 		die "_cert_get $r->{status} $r->{reason}";
 	}
 
