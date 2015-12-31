@@ -286,7 +286,6 @@ sub challengePoll {
 	}
 
 	my $json = decode_json($r->{'content'});
-	say Dumper($json);
 	$json->{'status'};
 }
 
