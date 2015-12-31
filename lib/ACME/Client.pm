@@ -20,12 +20,7 @@ my $directory_validator = ACNE::Validator->new(
 	'new-reg'     => $https_uri,
 	'revoke-cert' => $https_uri
 );
-# Stuff we output to terminal, so be careful.
-my $error_validator = ACNE::Validator->new(
-	'type'        => { validator => [\&ACNE::Validator::REGEX, qr/^urn:acme:error:(\w+)$/x] },
-	'detail'      => { validator => [\&ACNE::Validator::PRINTABLE] },
-	'status'      => { validator => [\&ACNE::Validator::INT] }
-);
+
 
 sub new {
 	my ($class, %args) = @_;
@@ -161,6 +156,32 @@ sub reg {
 sub new_authz {
 	my ($s, $domain) = @_;
 
+	state $identifier_validator = ACNE::Validator->new(
+		type  => {
+			validator => [sub { die "only \"dns\" is supported\n" if $_[0] ne 'dns'}]
+		},
+		value => {
+			validator => [\&ACNE::Validator::PRINTABLE]
+		}
+	);
+	state $validator = ACNE::Validator->new(
+		status => {
+			default   => 'pending',
+			validator => [\&ACNE::Validator::ENUM, {
+				unknown    => 'unknown',
+				pending    => 'pending',
+				processing => 'processing',
+				valid      => 'valid',
+				invalid    => 'invalid',
+				revoked    => 'revoked'
+			}]
+		},
+		expires => {
+			default   => undef,
+			validator => [\&ACNE::Validator::PRINTABLE] # FIXME MAYBE RFC3339 validator
+		}
+	);
+
 	my $req = {
 		'resource'   => 'new-authz',
 		'identifier' => {
@@ -170,25 +191,49 @@ sub new_authz {
 	};
 
 	my $r = $s->_post($s->directory('new-authz'), $req);
+	my $status = $r->{'status'};
+	my $h      = $r->{'headers'};
+	my $ct     = $h->{'content-type'};
 
-	if ( $r->{'status'} != 201 ) {
+	if ( $status != 201 ) {
 		_check_error($r);
-		die "Error requesting challenge: $r->{status} $r->{reason}\n";
+		die "Error requesting challenge: $status $r->{reason}\n";
+	}
+
+	if ( !defined $ct ) {
+		die "No Content-Type provided by server\n";
+	}
+
+	if ( $ct ne 'application/json' ) {
+		my $printable = ACNE::Validator::PRINTABLE($ct);
+		die "Got Content-Type \"$printable\", not application/json as expected\n";
 	}
 
 	my $json = decode_json($r->{'content'});
-	my @challenges = @{$json->{'challenges'}};
-	if ( @challenges == 0 ) {
-		die "No challenges recieved from ACME server\n";
+
+	# A dict of strings, type = dns and value dnsname
+	my $identifier = $identifier_validator->process(delete $json->{'identifier'});
+
+	# The challenges server supports for this dns name.
+	# Validation of challenge is left to the code handling challenges.
+	my $challenges = delete $json->{'challenges'}
+	  or die "No challenges in json from server\n";
+
+	if ( ref $challenges ne 'ARRAY' ) {
+		die "challenges in json from server not a list\n";
 	}
 
-	# Clean up
-	# FIXME do we really have to
-	for my $challenge ( @challenges ) {
-		$challenge->{'token'} =~ s![^A-Za-z0-9_\-]!_!g;
+	# List of lists. If not set all challenges must be met.
+	delete $json->{'combinations'};
+
+	# We should be left with: status (default pending), expires (RFC3339, optional)
+	my $rest = $validator->process($json);
+
+	if ( $rest->{'status'} ne 'pending' ) {
+		die "status of authorization is not pending\n";
 	}
 
-	@challenges;
+	@$challenges;
 }
 
 sub challenge {
@@ -222,13 +267,26 @@ sub challengePoll {
 	my ($s, $url) = @_;
 
 	my $r = $s->_get($url);
+	my $status = $r->{'status'};
+	my $h      = $r->{'headers'};
+	my $ct     = $h->{'content-type'};
 
-	if ( $r->{'status'} != 202 ) {
+	if ( $status != 202 ) {
 		_check_error($r);
-		die "Error polling challenge: $r->{status} $r->{reason}\n";
+		die "Error polling challenge: $status $r->{reason}\n";
+	}
+
+	if ( !defined $ct ) {
+		die "No Content-Type provided by server\n";
+	}
+
+	if ( $ct ne 'application/json' ) {
+		my $printable = ACNE::Validator::PRINTABLE($ct);
+		die "Got Content-Type \"$printable\", not application/json as expected\n";
 	}
 
 	my $json = decode_json($r->{'content'});
+	say Dumper($json);
 	$json->{'status'};
 }
 
@@ -261,6 +319,13 @@ sub new_cert {
 
 sub _check_error {
 	my ($r) = @_;
+
+	# Stuff we output to terminal, so be careful.
+	state $error_validator = ACNE::Validator->new(
+		'type'        => { validator => [\&ACNE::Validator::REGEX, qr/^urn:acme:error:(\w+)$/x] },
+		'detail'      => { validator => [\&ACNE::Validator::PRINTABLE] },
+		'status'      => { validator => [\&ACNE::Validator::INT] }
+	);
 
 	if ( !$r->{'success'} ) {
 		my $h = $r->{'headers'};
