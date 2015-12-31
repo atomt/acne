@@ -4,6 +4,7 @@ use 5.014;
 use warnings FATAL => 'all';
 use autodie;
 
+use Carp qw(croak);
 use File::Spec::Functions qw(splitdir);
 
 sub WORD {
@@ -62,10 +63,10 @@ sub PATH {
 	\@p;
 };
 
-# validator => [$ACNE::Validator::ENUM, a => 1, b => 1]
+# validator => [$ACNE::Validator::ENUM, { a => 1, b => 1 }]
 sub ENUM {
-	my ($in, %table) = @_;
-	exists $table{$in} ? $table{$in} : die "enum value has to one of: " . join(' ', sort keys %table) .  "\n";
+	my ($in, $table) = @_;
+	exists $table->{$in} ? $table->{$in} : die "enum value has to one of: " . join(' ', sort keys %$table) .  "\n";
 };
 
 sub new {
@@ -79,6 +80,14 @@ sub process {
 	my ($s, $data) = @_;
 	my @errors;
 	my $ret = {};
+
+	if ( defined $data ) {
+		croak "Bad input, expected hashref"
+		  if ref $data ne 'HASH';
+	}
+	else {
+		$data = {};
+	}
 
 	while ( my ($k, $v) = each %$s ) {
 		my @validator = @{$v->{'validator'}};
