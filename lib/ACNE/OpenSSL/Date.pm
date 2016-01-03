@@ -9,7 +9,7 @@ use IPC::Open3 qw(open3);
 #notBefore=..
 #notAfter=Mar 25 23:38:00 2016 GMT
 my $dates_re = qr/^notBefore=([\w\ :]+)\nnotAfter=([\w\ :]+)\n$/x;
-my $date_re = qr/^(?<mon>\w+)\ (?<day>\d+)\ (?<hour>\d+):(?<min>\d+):(?<sec>\d+)\ (?<year>\d{4})\ GMT$/x;
+my $date_re = qr/^(?<mon>\w+)\s+(?<day>\d+)\s+(?<hour>\d+):(?<min>\d+):(?<sec>\d+)\s+(?<year>\d{4})\s+GMT$/x;
 my %abbr = (Jan => 0, Feb => 1, Mar => 2, Apr => 3, May => 4, Jun => 5, Jul => 6, Aug => 7, Sep => 8, Oct => 9, Nov => 10, Dec => 11);
 
 sub x509_dates {
