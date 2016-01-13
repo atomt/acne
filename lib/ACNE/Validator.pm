@@ -90,17 +90,36 @@ sub process {
 	}
 
 	while ( my ($k, $v) = each %$s ) {
+		my $multiple  = $v->{'multiple'};
 		my @validator = @{$v->{'validator'}};
-		#my $validator = $v->{'validator'};
 		my $callback  = shift @validator;
 
 		if ( my $in = delete $data->{$k} ) {
 			$ret->{$k} = eval {
-				if ( ref $in ne '' ) {
-					die "input not a scalar value\n";
+				my $ret;
+
+				if ( $multiple ) {
+					$ret = [];
+					if ( ref $in ne 'ARRAY' && ref $in ne '' ) {
+						die "input not a list or scalar\n";
+					}
+					$in = ref $in eq '' ? [$in] : $in;
+
+					for ( @$in ) {
+						eval { push @$ret, $callback->($_, @validator) };
+						push @errors, "key \"$k\": $@" if $@;
+					}
 				}
-				$callback->($in, @validator)
+				else {
+					if ( ref $in ne '' ) {
+						die "input not a scalar value\n";
+					}
+					$ret = $callback->($in, @validator);
+				}
+
+				$ret;
 			};
+
 			push @errors, "key \"$k\": $@" if $@;
 		}
 		else {

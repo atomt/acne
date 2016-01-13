@@ -92,6 +92,15 @@ sub readPairs {
 			next;
 		}
 
+		if ( exists $ret->{$k} ) {
+			my $_v = $ret->{$k};
+			if ( ref $_v eq '' ) {
+				$_v = [$_v];
+			}
+			push @$_v, $v;
+			$v = $_v;
+		}
+
 		$ret->{$k} = $v;
 	}
 
