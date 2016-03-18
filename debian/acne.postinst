@@ -1,0 +1,12 @@
+#!/bin/sh -e
+
+if [ "$1" = "configure" ]; then
+	if ! getent passwd _acne >/dev/null; then
+		adduser --quiet --system --group --no-create-home --home /var/lib/acne _acne
+		chown _acne:_acne /var/lib/acne
+	fi
+
+	acne init 1>/dev/null 2>&1 || true
+fi
+
+#DEBHELPER#
