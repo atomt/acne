@@ -1,0 +1,14 @@
+Source: acne
+Section: utils
+Priority: optional
+Maintainer: Andre Tomt <andre@tomt.net>
+Build-Depends: debhelper (>= 9), perl, libmodule-build-perl
+Standards-Version: 3.6.2
+
+Package: acne
+Architecture: all
+Section: utils
+Priority: optional
+Depends: ${misc:Depends}, ${perl:Depends}, openssl, libio-socket-ssl-perl
+Description: ACNE the ACME CA protocol client
+ ACNE is a ACME client for automatic issuing of TLS certificates.
