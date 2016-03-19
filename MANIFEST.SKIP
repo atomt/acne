@@ -71,3 +71,6 @@
 
 # Avoid archives of this distribution
 \bAcne-[\d\.\_]+
+
+# Avoid packaging files
+^debian/
