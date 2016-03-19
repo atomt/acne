@@ -1,0 +1,1 @@
+_acne ALL=NOPASSWD: /usr/sbin/service nginx reload

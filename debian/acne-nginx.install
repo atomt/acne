@@ -1,0 +1,3 @@
+debian/nginx/nginx /etc/acne/hooks
+debian/nginx/acne-nginx /etc/sudoers.d
+debian/nginx/acne.conf /etc/nginx

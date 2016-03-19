@@ -12,3 +12,9 @@ Priority: optional
 Depends: ${misc:Depends}, ${perl:Depends}, openssl, libio-socket-ssl-perl
 Description: ACNE the ACME CA protocol client
  ACNE is a ACME client for automatic issuing of TLS certificates.
+
+Package: acne-nginx
+Architecture: all
+Section: utils
+Priority: optional
+Description: ACNE integration for nginx

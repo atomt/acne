@@ -1,11 +1,15 @@
 #!/usr/bin/make -f
 
-PACKAGE = $(shell dh_listpackages)
-TMP     = $(CURDIR)/debian/$(PACKAGE)
+TMP     = $(CURDIR)/debian/acne
+NGINX   = $(CURDIR)/debian/acne-nginx
 
 %:
 	dh $@
 
 override_dh_auto_install:
-	dh_auto_install
+	dh_auto_install --destdir=$(TMP)
 	mv $(TMP)/usr/bin $(TMP)/usr/sbin
+
+override_dh_install:
+	dh_install
+	chmod 0755 $(NGINX)/etc/acne/hooks/nginx

@@ -1,0 +1,8 @@
+#!/bin/sh -e
+case "$1" in
+postinst)
+    sudo service nginx reload
+    ;;
+esac
+
+exit 0
