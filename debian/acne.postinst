@@ -2,7 +2,7 @@
 
 if [ "$1" = "configure" ]; then
 	if ! getent passwd _acne >/dev/null; then
-		adduser --quiet --system --group --no-create-home --home /var/lib/acne _acne
+		adduser --quiet --system --group --no-create-home --home /var/lib/acne --force-badname _acne
 		chown _acne:_acne /var/lib/acne
 	fi
 
