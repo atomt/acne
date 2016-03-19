@@ -1,3 +1,9 @@
+acne (1-2) unstable; urgency=medium
+
+  * Fix manifest so it does not include debian/
+
+ -- Andre Tomt <andre@tomt.net>  Sat, 19 Mar 2016 13:56:14 +0100
+
 acne (1-1) unstable; urgency=medium
 
   * Initial packaging
