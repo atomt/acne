@@ -1,7 +1,3 @@
-# WARNING
-
-*This is very experimental. Things still change around -a lot-. There is a certain amount of Not Invented Here still lurking in the code base and error handling is currently not the greatest*
-
 # acne - a ACME/Let's Encrypt client
 
 Acne is a ACME client that manages keys and certificates for you, but little else.
@@ -45,9 +41,10 @@ Currently only local file system based http-01 challenge is supported, so make s
 
 For nginx this would typically be a file like this, for example `/etc/nginx/acne.conf`
 
-    location /.well-known/acme-challenge/ {
+    location ^~ /.well-known/acme-challenge/ {
         default_type "text/plain";
         alias /var/lib/acne/httpchallenge/;
+        allow all;
         try_files $uri =404;
     }
 
