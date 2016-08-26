@@ -228,9 +228,10 @@ sub new_authz {
 
 	# We should be left with: status (default pending), expires (RFC3339, optional)
 	my $rest = $validator->process($json);
+	my $astatus = $rest->{'status'};
 
-	if ( $rest->{'status'} ne 'pending' ) {
-		die "status of authorization is not pending\n";
+	if ( $astatus ne 'pending' and $astatus ne 'valid' ) {
+		die "status of authorization is not pending or valid\n";
 	}
 
 	@$challenges;
