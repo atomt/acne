@@ -9,6 +9,7 @@ use ACNE::Common qw($config);
 use ACNE::Util::File;
 use ACNE::Util::Rand;
 use ACNE::Crypto::RSA;
+use ACNE::Crypto::ECDSA;
 use ACNE::OpenSSL::Date;
 
 use HTTP::Tiny;
@@ -384,14 +385,22 @@ sub csrGenerate {
 
 	# If roll-key = 1, we always generate new key.
 	# if 0, we load the key if we have it, otherwise generate new key.
-	# FIXME not EC aware
 	# FIXME force roll if parameters have changed?
 	my $pkey_fp     = catfile($dir, 'new-key.pem');
 	my $pkey_old_fp = catfile($dir, 'key.pem');
 	my $pkey;
 
 	if ( !$roll && -e $pkey_old_fp ) {
-		$pkey = ACNE::Crypto::RSA->load($pkey_old_fp);
+		my $type = @$key[0];
+		if ( $type eq 'rsa' ) {
+			$pkey = ACNE::Crypto::RSA->load($pkey_old_fp);
+		}
+		elsif ( $type eq 'ecdsa' ) {
+			$pkey = ACNE::Crypto::ECDSA->load($pkey_old_fp);
+		}
+		else {
+			die "Unsupported key type $type";
+		}
 	}
 	else {
 		$pkey = $s->pkeyCreate($key);
@@ -434,7 +443,7 @@ sub csrGenerate {
 
 sub getId         { $_[0]->{'id'}; };
 sub getCAId       { $_[0]->{'combined'}->{'ca'}; }
-sub getKeyConf    { $_[0]->{'combined'}->{'key'}; }
+sub getKeyConf    { join(':', @{$_[0]->{'combined'}->{'key'}}); }
 sub getRollKey    { $_[0]->{'combined'}->{'roll-key'}; }
 sub getRun        { $_[0]->{'combined'}->{'run'}; }
 sub getDNS        { $_[0]->{'combined'}->{'dns'}; }
@@ -443,11 +452,14 @@ sub getRenewAfter { $_[0]->{'renew'}; }
 
 sub pkeyCreate {
 	my ($s, $conf) = @_;
+	my ($type, $arg) = @$conf;
 	my $ret;
 
-	my ($type, $arg) = split(/:/, $conf, 2);
 	if ( $type eq 'rsa' ) {
 		$ret = ACNE::Crypto::RSA->generate_key($arg);
+	}
+	elsif ( $type eq 'ecdsa' ) {
+		$ret = ACNE::Crypto::ECDSA->generate_key($arg);
 	}
 	else {
 		die "Unsupported key type \"$type\"\n";
