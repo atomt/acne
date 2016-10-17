@@ -94,10 +94,13 @@ sub keyValidator {
 	}
 	elsif ( $type eq 'ecdsa' ) {
 		if ( defined $arg ) {
-			$arg = ACNE::Validator::REGEX($arg, qr/^(secp224r1|secp384r1|secp521r1)$/);
+			$arg = ACNE::Validator::REGEX($arg, qr/^(secp224r1|secp256r1|prime256v1|secp384r1|secp521r1)$/);
+			if ( $arg eq 'secp256r1' ) {
+				$arg = 'prime256v1';
+			}
 		}
 		else {
-			$arg = 'secp384r1';
+			$arg = 'prime256v1';
 		}
 	}
 	else {
