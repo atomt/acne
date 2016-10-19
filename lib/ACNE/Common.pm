@@ -85,21 +85,11 @@ our $config;
 sub keyValidator {
 	my ($type, $arg) = split(/:/, $_[0], 2);
 	if ( $type eq 'rsa' ) {
-		if ( defined $arg ) {
-			$arg = ACNE::Validator::INT($arg, 1024, 8192);
-		}
-		else {
-			$arg = 3072;
-		}
+		$arg = defined $arg ? ACNE::Validator::INT($arg, 1024, 8192) : 3072;
 	}
 	elsif ( $type eq 'ecdsa' ) {
-		if ( defined $arg ) {
-			$arg = ACNE::Validator::REGEX($arg, qr/^(secp224r1|secp256r1|prime256v1|secp384r1|secp521r1)$/);
-			if ( $arg eq 'secp256r1' ) {
-				$arg = 'prime256v1';
-			}
-		}
-		else {
+		$arg = defined $arg ? ACNE::Validator::REGEX($arg, qr/^(secp224r1|secp256r1|prime256v1|secp384r1|secp521r1)$/) : 'prime256v1';
+		if ( $arg eq 'secp256r1' ) {
 			$arg = 'prime256v1';
 		}
 	}
