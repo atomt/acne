@@ -1,3 +1,12 @@
+acne (3-1) unstable; urgency=medium
+
+  * Adds fix so it does not crash on the new key-change endpoint in
+    the directory.
+
+  * Support for ECDSA certificates
+
+ -- Andre Tomt <andre@tomt.net>  Mon, 12 Dec 2016 23:53:24 +0100
+
 acne (2-1) unstable; urgency=medium
 
   * Import fix from master; upstream behaviour of authorizations
