@@ -35,7 +35,7 @@ sub _new {
 	# specified on command line.
 	$conf->{ca}  = $combined->{ca};
 
-	my ($keytype, $keyarg) = ACNE::Common::keyValidator($conf->{'key'});
+	my ($keytype, $keyarg) = ACNE::Common::keyValidator($combined->{'key'});
 
 	bless {
 	  id         => $id,
