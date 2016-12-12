@@ -18,7 +18,8 @@ my $directory_validator = ACNE::Validator->new(
 	'new-authz'   => $https_uri,
 	'new-cert'    => $https_uri,
 	'new-reg'     => $https_uri,
-	'revoke-cert' => $https_uri
+	'revoke-cert' => $https_uri,
+	'key-change'  => $https_uri
 );
 
 
