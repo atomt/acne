@@ -9,6 +9,7 @@ use ACNE::Common qw($config);
 use ACNE::Util::File;
 use ACNE::Util::Rand;
 use ACNE::Crypto::RSA;
+use ACNE::Crypto::ECDSA;
 use ACNE::OpenSSL::Date;
 
 use HTTP::Tiny;
@@ -34,10 +35,14 @@ sub _new {
 	# specified on command line.
 	$conf->{ca}  = $combined->{ca};
 
+	my ($keytype, $keyarg) = ACNE::Common::keyValidator($combined->{'key'});
+
 	bless {
 	  id         => $id,
 	  dir        => catdir(@{$config->{'system'}->{'store'}}, 'cert', $id),
 	  conf       => $conf,
+	  keytype    => $keytype,
+	  keyarg     => $keyarg,
 	  chain      => undef,
 	  pkey       => undef,
 	  location   => undef,
@@ -105,7 +110,6 @@ sub load {
 	}
 	$s->{'chain'} = $chain;
 
-	$s->{'pkey'}  = ACNE::Crypto::RSA->load($key_fp);
 	if ( -e $loc_fp ) {
 		$s->{'location'} = do { local $/; open my $fh, '<', $loc_fp; <$fh> };
 	}
@@ -378,23 +382,41 @@ sub domainAuth {
 sub csrGenerate {
 	my ($s, @domains) = @_;
 	my $dir      = $s->{'dir'};
+	my $keytype  = $s->{'keytype'};
+	my $keyarg   = $s->{'keyarg'};
 	my $combined = $s->{'combined'};
-	my $key      = $combined->{'key'};
 	my $roll     = $combined->{'roll-key'};
 
 	# If roll-key = 1, we always generate new key.
 	# if 0, we load the key if we have it, otherwise generate new key.
-	# FIXME not EC aware
 	# FIXME force roll if parameters have changed?
 	my $pkey_fp     = catfile($dir, 'new-key.pem');
 	my $pkey_old_fp = catfile($dir, 'key.pem');
 	my $pkey;
 
+	# Re-use key
 	if ( !$roll && -e $pkey_old_fp ) {
-		$pkey = ACNE::Crypto::RSA->load($pkey_old_fp);
+		if ( $keytype eq 'rsa' ) {
+			$pkey = ACNE::Crypto::RSA->load($pkey_old_fp);
+		}
+		elsif ( $keytype eq 'ecdsa' ) {
+			$pkey = ACNE::Crypto::ECDSA->load($pkey_old_fp);
+		}
+		else {
+			die "Unsupported key type $keytype";
+		}
 	}
+	# New key
 	else {
-		$pkey = $s->pkeyCreate($key);
+		if ( $keytype eq 'rsa' ) {
+			$pkey = ACNE::Crypto::RSA->generate_key($keyarg);
+		}
+		elsif ( $keytype eq 'ecdsa' ) {
+			$pkey = ACNE::Crypto::ECDSA->generate_key($keyarg);
+		}
+		else {
+			die "Unsupported key type $keytype";
+		}
 	}
 	$s->{'pkey'} = $pkey;
 	$pkey->save($pkey_fp, 0600);
@@ -434,27 +456,12 @@ sub csrGenerate {
 
 sub getId         { $_[0]->{'id'}; };
 sub getCAId       { $_[0]->{'combined'}->{'ca'}; }
-sub getKeyConf    { $_[0]->{'combined'}->{'key'}; }
+sub getKeyConf    { $_[0]->{'keytype'} . ':' . $_[0]->{'keyarg'}; }
 sub getRollKey    { $_[0]->{'combined'}->{'roll-key'}; }
 sub getRun        { $_[0]->{'combined'}->{'run'}; }
 sub getDNS        { $_[0]->{'combined'}->{'dns'}; }
 sub getNotAfter   { $_[0]->{'notafter'}; }
 sub getRenewAfter { $_[0]->{'renew'}; }
-
-sub pkeyCreate {
-	my ($s, $conf) = @_;
-	my $ret;
-
-	my ($type, $arg) = split(/:/, $conf, 2);
-	if ( $type eq 'rsa' ) {
-		$ret = ACNE::Crypto::RSA->generate_key($arg);
-	}
-	else {
-		die "Unsupported key type \"$type\"\n";
-	}
-
-	$ret;
-}
 
 ##
 ## No methods below. Effectively module global subs.

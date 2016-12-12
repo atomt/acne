@@ -47,7 +47,10 @@ sub run {
 		say STDERR 'No certificate name specified.';
 		usage_err();
 	}
-	$id = ACNE::Validator::WORD($id);
+
+	# Parsed outputs not used here - only for validation. Esp for $arg_key
+	ACNE::Validator::WORD($id);
+	ACNE::Common::keyValidator($arg_key);
 
 	if ( @arg_run and $arg_no_run ) {
 		say STDERR '--run and --no-run together does not make sense.';
