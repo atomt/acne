@@ -83,7 +83,9 @@ my $challenge_validator = ACNE::Validator->new(
 our $config;
 
 sub keyValidator {
-	my ($type, $arg) = split(/:/, $_[0], 2);
+	my $input = defined $_[0] ? $_[0] : 'rsa';
+	my ($type, $arg) = split(/:/, $input, 2);
+
 	if ( $type eq 'rsa' ) {
 		$arg = defined $arg ? ACNE::Validator::INT($arg, 1024, 8192) : 3072;
 	}
@@ -97,7 +99,7 @@ sub keyValidator {
 		die "Supported key types are: rsa and ecdsa\n";
 	}
 
-	[$type, $arg];
+	($type, $arg);
 }
 
 sub config {
