@@ -34,8 +34,8 @@ my $defaults_validator = ACNE::Validator->new(
 		validator => [\&ACNE::Validator::WORD]
 	},
 	'key'        => {
-		default   => 'rsa:3072',
-		validator => [\&ACNE::Validator::REGEX, qr/^(rsa:\w+)$/]
+		default   => 'rsa',
+		validator => [\&ACNE::Validator::PRINTABLE],
 	},
 	'roll-key'   => {
 		default   => 1,
@@ -81,6 +81,26 @@ my $challenge_validator = ACNE::Validator->new(
 );
 
 our $config;
+
+sub keyValidator {
+	my $input = defined $_[0] ? $_[0] : 'rsa';
+	my ($type, $arg) = split(/:/, $input, 2);
+
+	if ( $type eq 'rsa' ) {
+		$arg = defined $arg ? ACNE::Validator::INT($arg, 1024, 8192) : 3072;
+	}
+	elsif ( $type eq 'ecdsa' ) {
+		$arg = defined $arg ? ACNE::Validator::REGEX($arg, qr/^(secp224r1|secp256r1|prime256v1|secp384r1|secp521r1)$/) : 'prime256v1';
+		if ( $arg eq 'secp256r1' ) {
+			$arg = 'prime256v1';
+		}
+	}
+	else {
+		die "Supported key types are: rsa and ecdsa\n";
+	}
+
+	($type, $arg);
+}
 
 sub config {
 	my @errors;
