@@ -4,7 +4,7 @@
       "Andre Tomt <andre@tomt.net>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.4214",
+   "generated_by" : "Module::Build version 0.4218",
    "license" : [
       "gpl_2"
    ],
@@ -74,11 +74,17 @@
       "ACNE::Common" : {
          "file" : "lib/ACNE/Common.pm"
       },
+      "ACNE::Crypto::ECDSA" : {
+         "file" : "lib/ACNE/Crypto/ECDSA.pm"
+      },
       "ACNE::Crypto::RSA" : {
          "file" : "lib/ACNE/Crypto/RSA.pm"
       },
       "ACNE::OpenSSL::Date" : {
          "file" : "lib/ACNE/OpenSSL/Date.pm"
+      },
+      "ACNE::OpenSSL::ECDSA" : {
+         "file" : "lib/ACNE/OpenSSL/ECDSA.pm"
       },
       "ACNE::OpenSSL::RSA" : {
          "file" : "lib/ACNE/OpenSSL/RSA.pm"
@@ -98,5 +104,5 @@
    },
    "release_status" : "unstable",
    "version" : "0.01",
-   "x_serialization_backend" : "JSON::PP version 2.27203"
+   "x_serialization_backend" : "JSON::PP version 2.27400"
 }

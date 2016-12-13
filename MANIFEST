@@ -15,8 +15,10 @@ lib/ACNE/Cmd/Install.pm
 lib/ACNE/Cmd/New.pm
 lib/ACNE/Cmd/Renew.pm
 lib/ACNE/Common.pm
+lib/ACNE/Crypto/ECDSA.pm
 lib/ACNE/Crypto/RSA.pm
 lib/ACNE/OpenSSL/Date.pm
+lib/ACNE/OpenSSL/ECDSA.pm
 lib/ACNE/OpenSSL/RSA.pm
 lib/ACNE/OpenSSL/RSA/FakeNum.pm
 lib/ACNE/Util/File.pm

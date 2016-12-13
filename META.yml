@@ -7,7 +7,7 @@ build_requires:
 configure_requires:
   Module::Build: '0'
 dynamic_config: 1
-generated_by: 'Module::Build version 0.4214, CPAN::Meta::Converter version 2.150005'
+generated_by: 'Module::Build version 0.4218, CPAN::Meta::Converter version 2.150005'
 license: gpl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -41,10 +41,14 @@ provides:
     file: lib/ACNE/Cmd/Renew.pm
   ACNE::Common:
     file: lib/ACNE/Common.pm
+  ACNE::Crypto::ECDSA:
+    file: lib/ACNE/Crypto/ECDSA.pm
   ACNE::Crypto::RSA:
     file: lib/ACNE/Crypto/RSA.pm
   ACNE::OpenSSL::Date:
     file: lib/ACNE/OpenSSL/Date.pm
+  ACNE::OpenSSL::ECDSA:
+    file: lib/ACNE/OpenSSL/ECDSA.pm
   ACNE::OpenSSL::RSA:
     file: lib/ACNE/OpenSSL/RSA.pm
   ACNE::OpenSSL::RSA::FakeNum:
@@ -61,4 +65,4 @@ requires:
   JSON::PP: '2.27105'
   Net::SSLeay: '1.49'
 version: '0.01'
-x_serialization_backend: 'CPAN::Meta::YAML version 0.012'
+x_serialization_backend: 'CPAN::Meta::YAML version 0.018'
