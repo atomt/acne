@@ -1,3 +1,12 @@
+acne (4-1) unstable; urgency=medium
+
+  * Make more robust to smaller ACME API changes
+
+  * Allow access to cert private key by group, for daemons not reading
+    the key as root.
+
+ -- Andre Tomt <andre@tomt.net>  Thu, 19 Jan 2017 14:33:25 +0100
+
 acne (3-1) unstable; urgency=medium
 
   * Adds fix so it does not crash on the new key-change endpoint in
