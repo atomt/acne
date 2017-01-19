@@ -103,7 +103,7 @@ sub keyValidator {
 }
 
 sub config {
-	my @errors;
+	my (@errors, $discard);
 	my $fp = catfile(@etcdir, 'config');
 	my ($raw, $err) = ACNE::Util::File::readPairsStruct($fp)
 	  if -e $fp;
@@ -115,24 +115,39 @@ sub config {
 	  if !exists $raw->{'ca'}->{'letsencrypt-staging'}->{'acme-server'};
 
 	# Verify each grouping and remove when done, if we have any left at the end, bail.
-	($config->{'system'}, $err) = $system_validator->process(delete $raw->{'system'});
-	push @errors, "in system section\n", @$err if $err;
+	my $system = delete $raw->{'system'};
+	($config->{'system'}, $err) = $system_validator->process($system);
+	push @errors, "in section \"system\"\n", @$err if $err;
+	($discard, $err) = $system_validator->unknown_keys($system);
+	push @errors, "in section \"system\"\n", @$err if $err;
 
-	($config->{'defaults'}, $err) = $defaults_validator->process(delete $raw->{'defaults'});
-	push @errors, "in section \"default\"\n", @$err if $err;
+	my $defaults = delete $raw->{'defaults'};
+	($config->{'defaults'}, $err) = $defaults_validator->process($defaults);
+	push @errors, "in section \"defaults\"\n", @$err if $err;
+	($discard, $err) = $defaults_validator->unknown_keys($defaults);
+	push @errors, "in section \"defaults\"\n", @$err if $err;
 
-	($config->{'account'}, $err) = $account_validator->process(delete $raw->{'account'});
+	my $account = delete $raw->{'account'};
+	($config->{'account'}, $err) = $account_validator->process($account);
+	push @errors, "in section \"account\"\n", @$err if $err;
+	($discard, $err) = $account_validator->unknown_keys($account);
 	push @errors, "in section \"account\"\n", @$err if $err;
 
 	$config->{'ca'} = {};
 	while ( my ($k, $v) = each %{$raw->{'ca'}} ) {
-		($config->{'ca'}->{$k}, $err) = $ca_validator->process(delete $raw->{'ca'}->{$k});
+		my $ca = delete $raw->{'ca'}->{$k};
+		($config->{'ca'}->{$k}, $err) = $ca_validator->process($ca);
+		push @errors, "in section \"ca\"\n", @$err if $err;
+		($discard, $err) = $ca_validator->unknown_keys($ca);
 		push @errors, "in section \"ca\"\n", @$err if $err;
 	}
 	delete $raw->{'ca'};
 
 	# for now challenge.http01fs is hardcoded
-	($config->{'challenge'}->{'http01fs'}, $err) = $challenge_validator->process(delete $raw->{'challenge'}->{'http01fs'});
+	my $http01fs = delete $raw->{'challenge'}->{'http01fs'};
+	($config->{'challenge'}->{'http01fs'}, $err) = $challenge_validator->process($http01fs);
+	push @errors, "in section \"challenge\"\n", @$err if $err;
+	($discard, $err) = $challenge_validator->unknown_keys($http01fs);
 	push @errors, "in section \"challenge\"\n", @$err if $err;
 	push @errors, "unsupported challenge \"$_\"\n" for keys %{$raw->{'challenge'}};
 	delete $raw->{'challenge'};
