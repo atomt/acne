@@ -133,9 +133,6 @@ sub process {
 
 	}
 
-	push @errors, 'unknown key "' . printable($_) . '"' . "\n"
-	  for keys %$data;
-
 	# Golang style error handling - return what we have ;-)
 	if ( wantarray ) {
 		return ($ret, @errors ? \@errors : undef);
@@ -146,6 +143,27 @@ sub process {
 	$ret;
 }
 
+sub unknown_keys {
+	my ($s, $data) = @_;
+	my $ret = {};
+	my @errors;
+
+	while ( my ($k, $v) = each %$data ) {
+		if ( !exists $s->{$k} ) {
+			$ret->{$k} = $v;
+			push @errors, 'unknown key "' . printable($_) . '"' . "\n";
+		}
+	}
+
+	# Golang style error handling - return what we have ;-)
+	if ( wantarray ) {
+		return ($ret, @errors ? \@errors : undef);
+	}
+
+	# Traditional fuck-all
+	die @errors if @errors;
+	1;
+}
 
 sub printable {
 	state $re = qr/[^\p{PosixPrint}]/x;

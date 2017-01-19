@@ -41,6 +41,4 @@ if ( !$build->install_path('etc') ) {
 	}
 }
 
-$build->dispatch('manifest');
-$build->dispatch('distmeta');
 $build->create_build_script;

@@ -187,7 +187,7 @@ sub activate {
 	ACNE::Util::File::writeStr(join("\n", @chain), catfile($livedir, 'fullchain.pem'));
 	ACNE::Util::File::writeStr(shift @chain,       catfile($livedir, 'cert.pem'));
 	ACNE::Util::File::writeStr(join("\n", @chain), catfile($livedir, 'chain.pem'));
-	$pkey->save(catfile($livedir, 'key.pem'), 0600);
+	$pkey->save(catfile($livedir, 'key.pem'), 0640);
 
 	# Switch link
 	say "Switching $id to version $sha";
@@ -419,7 +419,7 @@ sub csrGenerate {
 		}
 	}
 	$s->{'pkey'} = $pkey;
-	$pkey->save($pkey_fp, 0600);
+	$pkey->save($pkey_fp, 0640);
 
 	# Create a CSR config which can be reused without special arguments
 	my $conf_fp = catdir($dir, 'new-csr.conf');
