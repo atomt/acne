@@ -68,6 +68,11 @@ my $account_validator = ACNE::Validator->new(
 my $ca_validator = ACNE::Validator->new(
 	# FIXME
 	'acme-server' => {
+		default => undef,
+		validator => [\&ACNE::Validator::REGEX, qr/^(.+)/]
+	},
+	'directory' => {
+		default => undef,
 		validator => [\&ACNE::Validator::REGEX, qr/^(.+)/]
 	}
 );
@@ -109,10 +114,10 @@ sub config {
 	  if -e $fp;
 
 	# Shipped CAs
-	$raw->{'ca'}->{'letsencrypt'}->{'acme-server'} = 'acme-v01.api.letsencrypt.org'
-	  if !exists $raw->{'ca'}->{'letsencrypt'}->{'acme-server'};
-	$raw->{'ca'}->{'letsencrypt-staging'}->{'acme-server'} = 'acme-staging.api.letsencrypt.org'
-	  if !exists $raw->{'ca'}->{'letsencrypt-staging'}->{'acme-server'};
+	$raw->{'ca'}->{'letsencrypt'}->{'directory'} = 'https://acme-v01.api.letsencrypt.org/directory'
+	  if !exists $raw->{'ca'}->{'letsencrypt'}->{'directory'};
+	$raw->{'ca'}->{'letsencrypt-staging'}->{'directory'} = 'https://acme-staging.api.letsencrypt.org/directory'
+	  if !exists $raw->{'ca'}->{'letsencrypt-staging'}->{'directory'};
 
 	# Verify each grouping and remove when done, if we have any left at the end, bail.
 	my $system = delete $raw->{'system'};

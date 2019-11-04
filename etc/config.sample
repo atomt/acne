@@ -20,4 +20,4 @@
 #  challenge.http01fs.acmeroot /var/lib/acne/httpchallenge
 #
 # Define custom CA "exampleca". Usable from defaults.ca and --ca
-#  ca.exampleca.acme-server acme-v1.api.example.com
+#  ca.exampleca.directory https://acme-v1.api.example.com/directory

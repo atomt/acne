@@ -25,8 +25,8 @@ my $directory_validator = ACNE::Validator->new(
 
 sub new {
 	my ($class, %args) = @_;
-	my $pkey    = $args{'pkey'}    || croak "pkey parameter missing";
-	my $address = $args{'address'} || croak "baseurl parameter missing";
+	my $pkey      = $args{'pkey'}      || croak "pkey parameter missing";
+	my $directory = $args{'directory'} || croak "directory parameter missing";
 
 	my $jws = ACME::Client::JWS->new(
 	  'pkey' => $pkey
@@ -46,8 +46,8 @@ sub new {
 	  'directory' => undef  # links loaded from /directory
 	} => $class;
 
-	# Load directory, containing uris for each api request
-	my $r = $s->_get('https://' . $address . '/directory');
+	# Load directory, containing uris for each supported api request
+	my $r = $s->_get($directory);
 	$s->{'directory'} = $directory_validator->process(decode_json($r->{'content'}));
 
 	$s;

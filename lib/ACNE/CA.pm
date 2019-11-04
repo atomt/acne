@@ -15,9 +15,19 @@ sub new {
 	my $conf = $config->{'ca'}->{$id}
 	  or die "Specified CA \"$id\" has no valid configuration\n";
 
+	my $directory  = $conf->{'directory'};
+	my $acmeserver = $conf->{'acme-server'};
+
+	if ( !defined $directory ) {
+		if ( !defined $acmeserver ) {
+			die "CA configuration is missing directory or acme-server\n";
+		}
+		$directory = 'https://' . $acmeserver . '/directory';
+	}
+
 	ACME::Client->new(
-	  pkey    => $pkey,
-	  address => $conf->{'acme-server'}
+	  pkey      => $pkey,
+	  directory => $directory
 	);
 }
 
