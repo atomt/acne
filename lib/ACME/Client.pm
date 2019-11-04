@@ -14,7 +14,7 @@ use MIME::Base64 qw(encode_base64 encode_base64url);
 
 # Lock directory to HTTPS
 my $https_uri = { validator => [\&ACNE::Validator::REGEX, qr!^(https://.*)$!x] };
-my $directory_validator = ACNE::Validator->new(
+my $directory_v1_validator = ACNE::Validator->new(
 	'new-authz'   => $https_uri,
 	'new-cert'    => $https_uri,
 	'new-reg'     => $https_uri,
@@ -43,14 +43,40 @@ sub new {
 	  'jws'       => $jws,
 	  'http'      => $http,
 	  'nonce'     => undef, # replay-detection
+	  'api'       => 0,
 	  'directory' => undef  # links loaded from /directory
 	} => $class;
 
-	# Load directory, containing uris for each supported api request
-	my $r = $s->_get($directory);
-	$s->{'directory'} = $directory_validator->process(decode_json($r->{'content'}));
+	$s->_directory_load($directory);
+}
 
-	$s;
+sub _directory_load {
+	my ($s, $directory) = @_;
+	my $http = $s->{'http'};
+
+	# Load directory, containing uris for each supported api request
+	my $api = 1;
+	my $r = $http->get($directory);
+	my $directory_raw = decode_json($r->{'content'});
+	if ( exists $directory_raw->{'newOrder'} ) {
+		$api = 2;
+	}
+
+	my $directory_parsed;
+	if ( $api == 1 ) {
+		$directory_parsed = $directory_v1_validator->process($directory_raw);
+	}
+	elsif ( $api == 2 ) {
+		die "Sorry, configured CA is using ACMEv2 which is not yet supported.\n";
+	}
+
+	if ( $api == 1 ) {
+		$s->_update_v1_nonce($r);
+	}
+
+	$s->{'api'} = $api;
+	$s->{'directory'} = $directory_parsed;
+	return $s;
 }
 
 sub jws       { $_[0]->{'jws'}; }
@@ -63,7 +89,7 @@ sub _post {
 
 	my $signed = $jws->sign($payload, { nonce => $s->{'nonce'} });
 	my $resp = $http->post($url, { content => $signed });
-	$s->_update_nonce($resp);
+	$s->_update_v1_nonce($resp);
 	$resp;
 }
 
@@ -72,12 +98,12 @@ sub _get {
 	my $http = $s->{'http'};
 
 	my $resp = $http->get($url);
-	$s->_update_nonce($resp);
+	$s->_update_v1_nonce($resp);
 	$resp;
 }
 
 # Update nonce
-sub _update_nonce {
+sub _update_v1_nonce {
 	my ($s, $resp) = @_;
 
 	my $headers = $resp->{'headers'};
