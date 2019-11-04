@@ -54,7 +54,7 @@ sub new_private_key {
 # dp = exponent1
 # dq = exponent2
 # qi = coefficient
-my $key_re = qr/^
+my $key_v10_re = qr/^
 	Private-Key:\ \((?<bits>[0-9]+)\ bit\)\n
 	modulus:\n\s+(?<n>[a-f0-9\:\s]+?)\n
 	publicExponent:\ [0-9]+\ \(0x(?<e>[a-f0-9]+)\)\n
@@ -65,6 +65,31 @@ my $key_re = qr/^
 	exponent2:\n\s+(?<dq>[a-f0-9\:\s]+?)\n
 	coefficient:\n\s+(?<qi>[a-f0-9\:\s]+?)$
 /x;
+
+my $key_v11_re = qr/^
+	RSA\ Private-Key:\ \((?<bits>[0-9]+)\ bit,\ \d\ primes\)\n
+	modulus:\n\s+(?<n>[a-f0-9\:\s]+?)\n
+	publicExponent:\ [0-9]+\ \(0x(?<e>[a-f0-9]+)\)\n
+	privateExponent:\n\s+(?<d>[a-f0-9\:\s]+?)\n
+	prime1:\n\s+(?<p>[a-f0-9\:\s]+?)\n
+	prime2:\n\s+(?<q>[a-f0-9\:\s]+?)\n
+	exponent1:\n\s+(?<dp>[a-f0-9\:\s]+?)\n
+	exponent2:\n\s+(?<dq>[a-f0-9\:\s]+?)\n
+	coefficient:\n\s+(?<qi>[a-f0-9\:\s]+?)$
+/x;
+
+
+sub _parseKeyTryMultiple {
+	my ($data, @re) = @_;
+
+	foreach (@re) {
+		if ( my @parsed = $data =~ $_ ) {
+			return @parsed;
+		}
+	}
+
+	die "we did not understand openssls rsa output. unsupported openssl version?\n";
+}
 
 sub _parseKey {
 	my ($pem) = @_;
@@ -79,8 +104,7 @@ sub _parseKey {
 	my $exitval = $? >> 8;
 	die "openssl rsa exit $exitval" if $exitval != 0;
 
-	my @parsed = $output =~ $key_re
-	  or die "we did not understand openssls rsa output\n";
+	my @parsed = _parseKeyTryMultiple($output, $key_v11_re, $key_v10_re);
 
 	my $bits = shift @parsed;
 	# Ok a little clunky (instead of counting + for loop iteration)
