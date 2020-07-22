@@ -15,9 +15,10 @@ sub new {
 	my ($class) = @_;
 	my $conf = $config->{'account'}
 	  or die "Account has no valid configuration\n";
+	my $dir = catdir(@{$config->{'system'}->{'store'}}, 'account', 'default');
 
 	my $s = bless {
-	  dir  => catdir(@{$config->{'system'}->{'store'}}, 'account', 'default'),
+	  dir  => $dir,
 	  conf => $conf,
 	  pkey => undef
 	} => $class;
@@ -54,6 +55,24 @@ sub keyInit {
 	$pkey;
 }
 
+sub tos {
+	my ($s, $ca_id) = @_;
+	my $tos_fp = catfile($s->{'dir'}, 'agreement.' . $ca_id);
+	if ( ! -e $tos_fp ) {
+		return;
+	}
+	my $tos = do { local $/; open my $fh, '<', $tos_fp; <$fh> };
+}
+
+sub kid {
+	my ($s, $ca_id) = @_;
+	my $fp = catfile($s->{'dir'}, 'location.'   . $ca_id);
+	if ( -e $fp ) {
+		return do { local $/; open my $fh, '<', $fp; <$fh> };
+	}
+	return;
+}
+
 sub _registered {
 	my ($s, $ca_id) = @_;
 	-e catfile($s->{'dir'}, 'location.'   . $ca_id);
@@ -63,19 +82,6 @@ sub _registered {
 sub registered {
 	my ($s, $ca_id) = @_;
 	my $dir = $s->{'dir'};
-	my $tosp_fp = catfile($dir, 'tospending.' . $ca_id);
-
-	if ( -e $tosp_fp ) {
-		my $tos = do { local $/; open my $fh, '<', $tosp_fp; <$fh> };
-		say '';
-		say 'Terms of Service is pending acceptance for this Certificate Authority';
-		say "Please review $tos";
-		say '';
-		say "Approve it using this command: acne account $ca_id --accept-tos <the URI above>";
-		say 'before issuing any certificates using this authority';
-		say '';
-		return;
-	}
 
 	if ( ! $s->_registered($ca_id) ) {
 		say '';
@@ -93,14 +99,14 @@ sub registered {
 sub ca_register {
 	my ($s, $ca, $ca_id) = @_;
 	my $dir     = $s->{'dir'};
-	my $tosp_fp = catfile($dir, 'agreement.pending.' . $ca_id);
+	my $tos_fp  = catfile($dir, 'agreement.' . $ca_id);
 	my $loc_fp  = catfile($dir, 'location.' . $ca_id);
 	my $conf    = $s->{'conf'};
 	my $email   = $conf->{'email'};
 	my $tel     = $conf->{'tel'};
 
 	# CA request
-	my ($created, $location, $toslocation) = $ca->new_reg(email => $email, tel => $tel);
+	my ($created, $location) = $ca->new_reg(email => $email, tel => $tel);
 
 	say '';
 	say $created ? 'Account created.' : 'Account already exists.';
@@ -108,24 +114,15 @@ sub ca_register {
 
 	# Record account location, also serves as a registered flag
 	ACNE::Util::File::writeStr($location, $loc_fp);
-
-	if ( $toslocation ) {
-		ACNE::Util::File::writeStr($toslocation, $tosp_fp);
-		say 'Certificate Authority requested acceptance of a Terms of Service located at';
-		say $toslocation;
-		say '';
-		say "Approve it using: acne account $ca_id --accept-tos <the URI above>";
-		say "before issuing any certificates using this authority";
-		say '';
-
-		return;
+	if ( my $ca_tos = $ca->tos() ) {
+		ACNE::Util::File::writeStr($ca->tos, $tos_fp);
 	}
 
 	1;
 }
 
 sub ca_update {
-	my ($s, $ca, $ca_id, $agreement) = @_;
+	my ($s, $ca, $ca_id) = @_;
 	my $dir     = $s->{'dir'};
 	my $conf    = $s->{'conf'};
 	my $email   = $conf->{'email'};
@@ -135,29 +132,11 @@ sub ca_update {
 	my $loc_fp  = catfile($dir, 'location.'   . $ca_id);
 	my $loc = do { local $/; open my $fh, '<', $loc_fp; <$fh> };
 
-	# Find agreement.ca_id
-	# indicates prior agreement accepted by both user and CA
-	my $tos_fp  = catfile($dir, 'agreement.' . $ca_id);
-	my $tosp_fp = catfile($dir, 'agreement.pending.' . $ca_id);
-	my $tos;
-	if ( defined $agreement ) {
-		$tos = $agreement;
-	}
-	elsif ( -e $tos_fp ) {
-		$tos = do { local $/; open my $fh, '<', $tos_fp; <$fh> };
-	}
-
 	$ca->reg($loc,
-	  agreement => $tos,
+	  agreement => 1,
 	  email     => $email,
 	  tel       => $tel
 	);
-
-	# Update accepted agreement
-	if ( $agreement ) {
-		ACNE::Util::File::writeStr($agreement, $tos_fp);
-		unlink $tosp_fp if -e $tosp_fp;
-	}
 
 	say '';
 	say 'Account updated at authority ', $ca_id;

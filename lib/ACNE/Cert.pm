@@ -19,6 +19,8 @@ use IPC::Open3;
 use MIME::Base64 qw(encode_base64url);
 use Digest::SHA qw(sha256);
 
+use Data::Dumper;
+
 # post{inst,rm}s to run after many certs processed
 my %postinst;
 my %postrm;
@@ -50,6 +52,7 @@ sub _new {
 	  renew      => undef,
 	  tested     => [],
 	  authorized => [],
+		order      => undef,
 	  defaults   => $defaults,
 	  combined   => $combined
 	} => $class;
@@ -267,21 +270,23 @@ sub authorize {
 	# domainAUth should be split into get+write challenges, notify CA and poll
 	# status parts. this would make it faster. but check limits first, say
 	# outstanding challenges.
-	for my $domain ( @tested ) {
-		eval { $s->domainAuth($ca, $domain) };
-		if ( $@ ) {
-			print STDERR " $domain FAIL: $@";
-		}
-		else {
-			say " $domain OK!";
-			push @authorized, $domain;
-		}
-	}
+	$s->domainAuth($ca, @tested);
+#	for my $domain ( @tested ) {
+#		eval { $s->domainAuth($ca, $domain) };
+#		if ( $@ ) {
+#			print STDERR " $domain FAIL: $@";
+#		}
+#		else {
+#			say " $domain OK!";
+#			push @authorized, $domain;
+#		}
+#	}
 
 	# FIXME Ditto as for pre-flight
-	if ( @tested != @authorized ) {
-		die "Some dns names failed authorization by authority - aborting\n";
-	}
+	@authorized = @tested;
+	#if ( @tested != @authorized ) {
+	#	die "Some dns names failed authorization by authority - aborting\n";
+	#}
 
 	$s->{'authorized'} = \@authorized;
 
@@ -290,6 +295,7 @@ sub authorize {
 
 sub issue {
 	my ($s, $ca) = @_;
+	my $order = $s->{'order'};
 	my $renew_left = $s->{'combined'}->{'renew-left'};
 	my @authorized = @{$s->{'authorized'}};
 
@@ -301,9 +307,10 @@ sub issue {
 	my $csr = $s->csrGenerate(@authorized);
 
 	#say "Requesting Certificate(s)";
-	my ($loc, $chain) = $ca->new_cert($csr);
+	my $chain = $ca->new_cert($csr, $order);
+
 	$s->{'chain'} = $chain;
-	$s->{'location'} = $loc;
+	print Dumper($chain);
 
 	my ($notbefore, $notafter) = ACNE::OpenSSL::Date::x509_dates(@$chain[0]);
 	$s->{'notafter'} = $notafter;
@@ -347,33 +354,40 @@ sub ACNE::Cert::AuthTest::test {
 sub ACNE::Cert::AuthTest::DESTROY { unlink $_[0]->{'path'}; }
 
 sub domainAuth {
-	my ($s, $acme, $domain) = @_;
+	my ($s, $acme, @domains) = @_;
 	my $acmeroot = catdir(@{$config->{'challenge'}->{'http01fs'}->{'acmeroot'}});
 
-	# Ask CA for challenges
-	my @challenges_all = $acme->new_authz($domain);
+	# Ask CA for authorizations
+	my $order = $acme->newOrder(@domains);
+	$s->{'order'} = $order;
+
+ 	my @challenges_all = @{$order->{'challenges'}};
 	my @challenges = grep { $_->{'type'} eq 'http-01' } @challenges_all;
 
 	if ( @challenges == 0 ) {
 		die "No supported challenges provided by CA\n";
 	}
 
-	my $challenge = $challenges[0];
+	for my $challenge ( @challenges ) {
+		# Make challenge file
+		my $token     = $challenge->{'token'};
+		my $thumb     = $acme->jws->thumbprint;
+		my $keyauth   = $token . '.' . $thumb;
+		my $path      = catfile($acmeroot, $token);
 
-	# Make challenge file
-	my $token     = $challenge->{'token'};
-	my $thumb     = $acme->jws->thumbprint;
-	my $keyauth   = $token . '.' . $thumb;
-	my $path      = catfile($acmeroot, $token);
+		# Publish
+		ACNE::Util::File::writeStr($keyauth, $path);
+		chmod 644, $path;
 
-	# Publish
-	ACNE::Util::File::writeStr($keyauth, $path);
-	chmod 644, $path;
+		# Notify CA to go fetch
+		$acme->challenge($challenge->{'url'}, $keyauth);
+	}
 
-	# Notify CA to go fetch
-	$acme->challenge($challenge->{'uri'}, $keyauth);
-
-	unlink $path;
+	for my $challenge ( @challenges ) {
+		my $token = $challenge->{'token'};
+		my $path = catfile($acmeroot, $token);
+		unlink $path;
+	}
 
 	1;
 }

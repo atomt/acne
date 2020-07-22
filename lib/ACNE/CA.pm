@@ -10,7 +10,7 @@ use ACME::Client;
 
 # Load config and pass on to ACME::Client
 sub new {
-	my ($class, $id, $pkey) = @_;
+	my ($class, $id, $account) = @_;
 
 	my $conf = $config->{'ca'}->{$id}
 	  or die "Specified CA \"$id\" has no valid configuration\n";
@@ -26,7 +26,8 @@ sub new {
 	}
 
 	ACME::Client->new(
-	  pkey      => $pkey,
+		kid       => $account->kid($id),
+	  pkey      => $account->keyInit,
 	  directory => $directory
 	);
 }

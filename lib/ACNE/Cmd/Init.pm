@@ -71,6 +71,9 @@ sub run {
 	systemv('chmod', '0755', $acmeroot);
 
 	systemv('chown', '-R', $uid . ':' . $gid, $store);
+
+	# convert account info
+
 	say '';
 	say 'Acne should be ready for use.';
 }

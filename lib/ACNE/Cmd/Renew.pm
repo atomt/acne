@@ -90,7 +90,7 @@ sub run {
 				if ( !$account->registered($ca_id) ) {
 					die;
 				}
-				$ca{$ca_id} = ACNE::CA->new($ca_id, $account->keyInit);
+				$ca{$ca_id} = ACNE::CA->new($ca_id, $account);
 			}
 			push @loaded, $cert;
 		};

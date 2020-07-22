@@ -81,7 +81,7 @@ sub run {
 	my $run        = $cert->getRun;
 
 	my $account = ACNE::Account->new;
-	my $ca = ACNE::CA->new($ca_id, $account->keyInit);
+	my $ca = ACNE::CA->new($ca_id, $account);
 
 	if ( !$account->registered($ca_id) ) {
 		exit 1;
