@@ -19,8 +19,6 @@ use IPC::Open3;
 use MIME::Base64 qw(encode_base64url);
 use Digest::SHA qw(sha256);
 
-use Data::Dumper;
-
 # post{inst,rm}s to run after many certs processed
 my %postinst;
 my %postrm;
@@ -310,7 +308,6 @@ sub issue {
 	my $chain = $ca->new_cert($csr, $order);
 
 	$s->{'chain'} = $chain;
-	print Dumper($chain);
 
 	my ($notbefore, $notafter) = ACNE::OpenSSL::Date::x509_dates(@$chain[0]);
 	$s->{'notafter'} = $notafter;

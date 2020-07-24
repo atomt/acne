@@ -5,9 +5,9 @@ use warnings FATAL => 'all';
 use autodie;
 
 use Exporter 'import';
-our @EXPORT_OK = qw($config);
+our @EXPORT_OK = qw($config dbver);
 
-use File::Spec::Functions qw(catfile);
+use File::Spec::Functions qw(catfile catdir);
 use ACNE::Validator;
 use ACNE::Util::File;
 
@@ -86,6 +86,8 @@ my $challenge_validator = ACNE::Validator->new(
 );
 
 our $config;
+our $skip_dbcheck = 0;
+my  $DBVER_ACCOUNT = 2;
 
 sub keyValidator {
 	my $input = defined $_[0] ? $_[0] : 'rsa';
@@ -114,7 +116,7 @@ sub config {
 	  if -e $fp;
 
 	# Shipped CAs
-	$raw->{'ca'}->{'letsencrypt'}->{'directory'} = 'https://acme-v01.api.letsencrypt.org/directory'
+	$raw->{'ca'}->{'letsencrypt'}->{'directory'} = 'https://acme-v02.api.letsencrypt.org/directory'
 	  if !exists $raw->{'ca'}->{'letsencrypt'}->{'directory'};
 	$raw->{'ca'}->{'letsencrypt-staging'}->{'directory'} = 'https://acme-staging-v02.api.letsencrypt.org/directory'
 	  if !exists $raw->{'ca'}->{'letsencrypt-staging'}->{'directory'};
@@ -164,7 +166,26 @@ sub config {
 		die "Errors loading configuration file $fp\n", @errors;
 	}
 
+	my $accountdb_fp = catdir(@{$config->{'system'}->{'store'}}, 'account');
+	if ( !$skip_dbcheck && dbver($accountdb_fp) < $DBVER_ACCOUNT ) {
+		die "Old account database version detected!\nPlease run `sudo acne init` to upgrade it.\n";
+	}
+
 	1;
+}
+
+sub dbver {
+	my ($dir) = @_;
+	my $fp = catfile($dir, 'dbver');
+
+	# No file means version 1.
+	if ( ! -e $fp ) {
+		return 1;
+	}
+
+	open my $fh, '<', $fp;
+	my $v = <$fh>; chomp($v);
+	return $v;
 }
 
 # FIXME too much NIH and maybe bad place

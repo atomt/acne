@@ -5,7 +5,6 @@ use warnings FATAL => 'all';
 use autodie;
 
 use ACNE::Common qw($config);
-use ACNE::Account;
 use ACNE::Cert;
 use ACNE::CA;
 use ACNE::Validator;
@@ -78,8 +77,6 @@ sub run {
 		exit 0;
 	}
 
-	my $account = ACNE::Account->new;
-
 	my %ca;
 	my @loaded;
 	for my $id ( @selected ) {
@@ -87,10 +84,13 @@ sub run {
 			my $cert = ACNE::Cert->load($id);
 			my $ca_id = $cert->getCAId;
 			if ( !exists $ca{$ca_id} ) {
-				if ( !$account->registered($ca_id) ) {
+				my $_ca = ACNE::CA->new($ca_id);
+				$_ca->initialize;
+				if ( !$_ca->registered_db ) {
 					die;
 				}
-				$ca{$ca_id} = ACNE::CA->new($ca_id, $account);
+
+				$ca{$ca_id} = $_ca;
 			}
 			push @loaded, $cert;
 		};

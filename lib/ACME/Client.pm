@@ -12,6 +12,11 @@ use JSON::PP;
 use HTTP::Tiny;
 use MIME::Base64 qw(encode_base64 encode_base64url);
 
+use constant newAccount_bools => qw(
+	termsOfServiceAgreed
+	onlyReturnExisting
+);
+
 # Lock directory to HTTPS
 my $https_uri = { validator => [\&ACNE::Validator::REGEX, qr!^(https://.*)$!x] };
 my $httpx_uri = { validator => [\&ACNE::Validator::REGEX, qr!^(https?://.*)$!x] };
@@ -28,14 +33,9 @@ my $directory_meta_validator = ACNE::Validator->new(
 
 sub new {
 	my ($class, %args) = @_;
-	my $pkey      = $args{'pkey'}      || croak "pkey parameter missing";
-	my $kid       = $args{'kid'};
 	my $directory = $args{'directory'} || croak "directory parameter missing";
 
-	my $jws = ACME::Client::JWS->new(
-	  'pkey' => $pkey,
-		'kid'  => $kid
-	);
+	my $jws = ACME::Client::JWS->new();
 	my $http = HTTP::Tiny->new(
 	  'verify_SSL'      => 1,
 	  'default_headers' => {
@@ -44,25 +44,44 @@ sub new {
   	  }
   	);
 
-	my $s = bless {
+	bless {
 	  'jws'           => $jws,
 	  'http'          => $http,
+		'location'      => undef,
 	  'nonce'         => undef, # replay-detection
 	  'directory'     => undef,  # links loaded from /directory
 		'tos'           => undef,
 		'directory_url' => $directory
 	} => $class;
-
-	$s->_directory_load();
 }
 
-sub _directory_load {
+sub pkey_set {
+	my ($s, $pkey) = @_;
+	my $jws = $s->{'jws'};
+	$jws->pkey_set($pkey);
+}
+
+sub kid_set {
+	my ($s, $kid) = @_;
+	my $jws = $s->{'jws'};
+	$jws->kid_set($kid);
+	$s->{'location'} = $kid;
+}
+
+sub initialize {
 	my ($s) = @_;
 	my $http      = $s->{'http'};
 	my $directory = $s->{'directory_url'};
+	my $options = {
+		headers => { 'Accept' => 'application/json' }
+	};
+
+	if ( defined $s->{'directory'} ) {
+		return 1;
+	} 
 
 	# Load directory, containing uris for each supported api request
-	my $r = $http->get($directory);
+	my $r = $http->get($directory, $options);
 	my $directory_raw = decode_json($r->{'content'});
 	if ( !exists $directory_raw->{'newOrder'} ) {
 		die "Failed to detect presence of ACMEv2 support in CA directory\n";
@@ -73,7 +92,7 @@ sub _directory_load {
 	$s->{'tos'} = $meta->{'termsOfService'};
 	$s->_update_nonce($r);
 
-	return $s;
+	1;
 }
 
 sub jws       { $_[0]->{'jws'}; }
@@ -81,18 +100,21 @@ sub directory { $_[0]->{'directory'}->{$_[1]} or die "request name \"$_[1]\" not
 sub tos       { $_[0]->{'tos'}; }
 
 sub _post {
-	my ($s, $url, $payload) = @_;
+	my ($s, $url, $payload, $use_jwk) = @_;
 	my $http = $s->{'http'};
 	my $jws  = $s->{'jws'};
 
 	$s->_update_nonce(undef);
-	my $signed = $jws->sign($payload, { url => $url, nonce => $s->{'nonce'} });
-	my $resp = $http->post($url, { content => $signed });
-
+	my $signed = $jws->sign($payload, { url => $url, nonce => $s->{'nonce'} }, $use_jwk);
+	my $r = $http->post($url, { content => $signed });
 	$s->{'nonce'} = undef;
-	$s->_update_nonce($resp);
-	$resp;
+	$s->_update_nonce($r);
+	$s->_check_error($r);
+
+	$r;
 }
+
+sub _post_jwk { shift->_post(@_, 1); }
 
 sub _get {
 	my ($s, $url) = @_;
@@ -140,93 +162,56 @@ sub _get_nonce {
 	die "No Replay-Nonce in CA response! url: $url";
 }
 
-sub new_reg {
-	my ($s, %args) = @_;
-	my $api     = $s->{'api'};
-	my $email   = $args{'email'};
-	my $tel     = $args{'tel'};
-	my $created = 0;
+sub newAccount {
+	my ($s, %req) = @_;
+	my $http_expect_status = 201;
+	my $use_jwk = 0;
 
-	my @contact;
-	push @contact, 'mailto:' . $email if defined $email;
-	push @contact, 'tel:' . $tel      if defined $tel;
-
-	my $req = {};
-	if ( @contact ) {
-		$req->{'contact'} = \@contact;
+	# Searching uses JWK
+	if ( $req{onlyReturnExisting} ) {
+		$use_jwk = 1;
+		$http_expect_status = 200;
 	}
-	$req->{'termsOfServiceAgreed'} = JSON::PP::true;
 
-	my $r = $s->_post($s->directory('newAccount'), $req);
+	# Switch to JSON bools
+	for my $key (newAccount_bools()) {
+		next if !exists $req{$key};
+		$req{$key} = $req{$key} ? JSON::PP::true : JSON::PP::false;
+	}
 
+	my $r = $s->_post($s->directory('newAccount'), \%req, $use_jwk);
+	my $h      = $r->{'headers'};
 	my $status = $r->{'status'};
-	if ( $status == 201 ) {
-		$created = 1;
-	}
-	elsif ( $status != 409 ) {
-		$s->_check_error($r);
-		die "Error registering: $status $r->{reason}\n";
+
+	if ( $status != $http_expect_status ) {
+		die "ACME server returned unexpected HTTP status $status, expected $http_expect_status";
 	}
 
-	my $loc = $r->{'headers'}->{'location'};
-	$loc = ACNE::Validator::PRINTABLE($loc) if defined $loc;
+	if ( !exists $h->{'location'} ) {
+		die "ACME server did not provide a account location.";
+	}
 
-	($created, $loc);
+	return $h->{'location'};
 }
 
-sub reg {
-	my ($s, $uri, %args) = @_;
-	my $email     = $args{'email'};
-	my $tel       = $args{'tel'};
-	my $agreement = $args{'agreement'};
+sub updateAccount {
+	my ($s, %req) = @_;
+	my $http_expect_status = 200;
 
-	my @contact;
-	push @contact, 'mailto:' . $email if defined $email;
-	push @contact, 'tel:' . $tel     if defined $tel;
-
-	my $req = {};
-	if ( @contact ) {
-		$req->{'contact'} = \@contact;
+	# Switch to JSON bools
+	for my $key (newAccount_bools()) {
+		next if !exists $req{$key};
+		$req{$key} = $req{$key} ? JSON::PP::true : JSON::PP::false;
 	}
-	if ( $agreement ) {
-		$req->{'termsOfServiceAgreed'} = JSON::PP::true;
-	}
+	my $r = $s->_post($s->{'location'}, \%req, 0);
+	my $h      = $r->{'headers'};
+	my $status = $r->{'status'};
 
-	my $r = $s->_post($uri, $req);
-
-	if ( $r->{'status'} != 200 ) {
-		$s->_check_error($r);
-		die "Error updating: $r->{status} $r->{reason}\n";
+	if ( $status != $http_expect_status ) {
+		die "ACME server returned unexpected HTTP status $status, expected $http_expect_status";
 	}
 
 	1;
-}
-
-sub get_reg {
-	my ($s) = @_;
-
-	my $r = $s->_post($s->directory('newAccount'), {
-		onlyReturnExisting => JSON::PP::true
-	});
-	my $status = $r->{'status'};
-	my $h      = $r->{'headers'};
-	my $ct     = $h->{'content-type'};
-
-	if ( $status != 200 ) {
-		$s->_check_error($r);
-		die "Error requesting account info: $r->{status} $r->{reason}\n";
-	}
-
-	if ( !defined $ct ) {
-		die "No Content-Type provided by server\n";
-	}
-
-	if ( $ct ne 'application/json' ) {
-		my $printable = ACNE::Validator::PRINTABLE($ct);
-		die "Got Content-Type \"$printable\", not application/json as expected\n";
-	}
-
-	return decode_json($r->{'content'});
 }
 
 sub newOrder {
@@ -271,7 +256,6 @@ sub newOrder {
 	my $ct     = $h->{'content-type'};
 
 	if ( $status != 201 ) {
-		$s->_check_error($r);
 		die "Error requesting challenge: $status $r->{reason}\n";
 	}
 
@@ -294,7 +278,6 @@ sub newOrder {
 		my $r = $s->_post($authorization, undef); # post-as-get
 		my $status = $r->{'status'};
 		if ( $status != 200 ) {
-			$s->_check_error($r);
 			die "Error requesting authorization: $status $r->{reason}\n";
 		}
 
@@ -323,8 +306,6 @@ sub newOrder {
 		}
 	}
 
-	say "LOCATION: $location";
-
 	{
 		'finalize'   => $finalize,
 		'challenges' => \@challenges,
@@ -338,7 +319,6 @@ sub challenge {
 
 	my $r = $s->_post($url, $req);
 	if ( $r->{'status'} != 200 ) {
-		$s->_check_error($r);
 		die "Error triggering challenge: $r->{status} $r->{reason}\n";
 	}
 
@@ -368,7 +348,6 @@ sub challengePoll {
 	my $ct     = $h->{'content-type'};
 
 	if ( $status != 200 ) {
-		$s->_check_error($r);
 		die "Error polling challenge: $status $r->{reason}\n";
 	}
 
@@ -398,14 +377,12 @@ sub new_cert {
 	my $r = $s->_post($finalize_url, $req);
 
 	if ( $r->{'status'} != 200 ) {
-		$s->_check_error($r);
 		die "Error signing certificate: $r->{status} $r->{reason}\n";
 	}
 
 	# Poll the order url to see if there is a certificate to fetch
 	$r = $s->_post($order_url, undef); # POST-as-GET
 	if ( $r->{'status'} != 200 ) {
-		$s->_check_error($r);
 		die "Error polling order status: $r->{status} $r->{reason}\n";
 	}
 
@@ -417,7 +394,6 @@ sub new_cert {
 
 	$r = $s->_post($cert_url, undef); # POST-as-GET
 	if ( $r->{'status'} != 200 ) {
-		$s->_check_error($r);
 		die "Error getting certificate: $r->{status} $r->{reason}\n";
 	}
 

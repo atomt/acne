@@ -5,7 +5,6 @@ use warnings FATAL => 'all';
 use autodie;
 
 use ACNE::Common qw($config);
-use ACNE::Account;
 use ACNE::Cert;
 use ACNE::CA;
 use ACNE::Validator;
@@ -80,12 +79,13 @@ sub run {
 	my $ca_id      = $cert->getCAId;
 	my $run        = $cert->getRun;
 
-	my $account = ACNE::Account->new;
-	my $ca = ACNE::CA->new($ca_id, $account);
+	my $ca = ACNE::CA->new($ca_id);
 
-	if ( !$account->registered($ca_id) ) {
+	if ( !$ca->registered_db ) {
 		exit 1;
 	}
+
+	$ca->initialize;
 
 	say "** Issuing certificate $id **";
 	say ' Authority ', $ca_id;

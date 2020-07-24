@@ -17,9 +17,18 @@ use Digest::SHA qw(sha256);
 use Data::Dumper;
 
 sub new {
-	my ($class, %args) = @_;
-	my $pkey = $args{'pkey'} || croak "No pkey parameter";
-	my $kid  = $args{'kid'};
+	my ($class) = @_;
+
+	bless {
+	  'pkey'   => undef,
+		'jwk'    => undef,
+		'kid'    => undef,
+		'alg'    => 'RS256'
+	} => $class;
+}
+
+sub pkey_set {
+	my ($s, $pkey) = @_;
 
 	# the jwk header is used if we dont have a kid
 	my $kparams = _key2hash($pkey);
@@ -29,20 +38,13 @@ sub new {
 			'n'   => encode_base64url($kparams->{n})  # pub key
 	};
 
-	my $header = { 'alg' => 'RS256' };
-	if ( $kid ) {
-		$header->{kid} = $kid;
-	}
-	else {
-		$header->{jwk} = $jwk;
-	}
+	$s->{'jwk'} = $jwk;
+	$s->{'pkey'} = $pkey;
+}
 
-	bless {
-	  'pkey'   => $pkey,
-		'jwk'    => $jwk,
-		'kid'    => $kid,
-	  'header' => $header
-	} => $class;
+sub kid_set {
+	my ($s, $kid) = @_;
+	$s->{'kid'} = $kid;
 }
 
 sub _key2hash {
@@ -66,14 +68,24 @@ sub _clone {
 }
 
 sub sign {
-	my ($s, $payload, $add_to_protected) = @_;
-	my $header = $s->{'header'};
-	my $pkey   = $s->{'pkey'};
+	my ($s, $payload, $add_to_protected, $use_jwk) = @_;
+	my $alg  = $s->{'alg'};
+	my $jwk  = $s->{'jwk'};
+	my $kid  = $s->{'kid'};
+	my $pkey = $s->{'pkey'};
 
 	# POST-as-GET (prob should move json encode out to _post and _get callers..)
 	my $payload_json = "";
 	if ( defined $payload ) {
 		$payload_json = encode_json($payload);
+	}
+	
+	my $header = {'alg' => $alg };
+	if ( $use_jwk ) {
+		$header->{'jwk'} = $jwk;
+	}
+	else {
+		$header->{'kid'} = $kid;
 	}
 
 	my $payload64 = encode_base64url($payload_json);
