@@ -60,7 +60,7 @@ sub initialize {
 		}
 	};
 	if ( $@ ) {
-		warn $@;
+		die $@ if $s->registered_db;
 	}
 }
 
@@ -74,10 +74,8 @@ sub create_db {
 		mkdir $dir, 0700;
 	}
 
-	say "New account, generating account private key";
 	my $pkey = ACNE::Crypto::RSA->generate_key(4096);
 	$pkey->save($pkey_fp, 0600);
-	say "Account private key generation complete";
 
 	1;
 }

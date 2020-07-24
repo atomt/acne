@@ -49,10 +49,13 @@ sub run {
         $ca_id = ACNE::Validator::WORD($ca_id);
     }
 
+    say "Selected Certificate Authority $ca_id.";
+
     my $ca = ACNE::CA->new($ca_id);
 
     # Load local account information
     if ( !$ca->account_exists_db ) {
+        say 'Generating new account key.';
         $ca->create_db;
     }
     $ca->initialize;
@@ -95,7 +98,7 @@ sub run {
         $ca->newAccount(%req);
         $ca->registered_db_set();
 
-        say 'A new account was created.';
+        say 'A new account was created at the Certificate Authority.';
     }
     # Update
     else {
@@ -104,6 +107,7 @@ sub run {
 
         # Push update
         $ca->updateAccount(%req);
+        say "Account updated at the Certificate Authority.";
     }
 
     1;
