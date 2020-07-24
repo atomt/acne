@@ -165,11 +165,9 @@ sub _get_nonce {
 sub newAccount {
 	my ($s, %req) = @_;
 	my $http_expect_status = 201;
-	my $use_jwk = 0;
 
 	# Searching uses JWK
 	if ( $req{onlyReturnExisting} ) {
-		$use_jwk = 1;
 		$http_expect_status = 200;
 	}
 
@@ -179,7 +177,7 @@ sub newAccount {
 		$req{$key} = $req{$key} ? JSON::PP::true : JSON::PP::false;
 	}
 
-	my $r = $s->_post($s->directory('newAccount'), \%req, $use_jwk);
+	my $r = $s->_post($s->directory('newAccount'), \%req, 1);
 	my $h      = $r->{'headers'};
 	my $status = $r->{'status'};
 
