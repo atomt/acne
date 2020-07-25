@@ -81,7 +81,6 @@ sub newAccount {
 	my ($s, %req) = @_;
 	my $http_expect_status = 201;
 
-	# Searching uses JWK
 	if ( $req{onlyReturnExisting} ) {
 		$http_expect_status = 200;
 	}
@@ -92,19 +91,19 @@ sub newAccount {
 		$req{$key} = $req{$key} ? JSON::PP::true : JSON::PP::false;
 	}
 
-	my $r = $s->_post($s->directory('newAccount'), \%req, 1);
-	my $h      = $r->{'headers'};
-	my $status = $r->{'status'};
-
-	if ( $status != $http_expect_status ) {
-		die "ACME server returned unexpected HTTP status $status, expected $http_expect_status";
-	}
+	my ($r, $account) = $s->_post($s->directory('newAccount'), \%req,
+	  {use_jwk => 1, expected_status => $http_expect_status});
+	my $h = $r->{'headers'};
 
 	if ( !exists $h->{'location'} ) {
 		die "ACME server did not provide a account location.";
 	}
 
-	return $h->{'location'};
+	if (wantarray) {
+		return ($h->{'location'}, $account);
+	}
+
+	return $account;
 }
 
 sub updateAccount {
@@ -116,15 +115,8 @@ sub updateAccount {
 		next if !exists $req{$key};
 		$req{$key} = $req{$key} ? JSON::PP::true : JSON::PP::false;
 	}
-	my $r = $s->_post($s->{'location'}, \%req, 0);
-	my $h      = $r->{'headers'};
-	my $status = $r->{'status'};
-
-	if ( $status != $http_expect_status ) {
-		die "ACME server returned unexpected HTTP status $status, expected $http_expect_status";
-	}
-
-	1;
+	return scalar $s->_post($s->{'location'}, \%req,
+	  {expected_status => $http_expect_status});
 }
 
 sub newOrder {
@@ -163,29 +155,17 @@ sub newOrder {
 	}
 	$req->{'identifiers'} = \@identifiers;
 
-	my $r = $s->_post($s->directory('newOrder'), $req);
-	my $status = $r->{'status'};
+	my ($r, $json) = $s->_post($s->directory('newOrder'), $req, {expected_status => 201});
 	my $h      = $r->{'headers'};
-
-	if ( $status != 201 ) {
-		die "Error requesting challenge: $status $r->{reason}\n";
-	}
-
-	my $json = decode_json($r->{'content'});
 
 	my $location = $h->{'location'};
 	my $authorizations = delete $json->{'authorizations'};
 	my $finalize = delete $json->{'finalize'};
 	my @challenges;
 	for my $authorization ( @$authorizations ) {
-		my $r = $s->_post($authorization, undef); # post-as-get
-		my $status = $r->{'status'};
-		if ( $status != 200 ) {
-			die "Error requesting authorization: $status $r->{reason}\n";
-		}
+		my ($r, $json) = $s->_post($authorization, undef); # post-as-get
 
 		# contains the challenges
-		my $json = decode_json($r->{'content'});
 		my $identifier = $identifier_validator->process(delete $json->{'identifier'});
 
 		# The challenges server supports for this dns name.
@@ -219,10 +199,7 @@ sub newOrder {
 sub challenge {
 	my ($s, $url) = @_;
 
-	my $r = $s->_post($url, {});
-	if ( $r->{'status'} != 200 ) {
-		die "Error triggering challenge: $r->{status} $r->{reason}\n";
-	}
+	my ($r) = $s->_post($url, {});
 
 	# Wait for ready
 	while ( 1 ) {
@@ -243,17 +220,7 @@ sub challenge {
 
 sub challengePoll {
 	my ($s, $url) = @_;
-
-	my $r = $s->_post($url, undef); # POST-as-GET
-	my $status = $r->{'status'};
-	my $h      = $r->{'headers'};
-	my $ct     = $h->{'content-type'};
-
-	if ( $status != 200 ) {
-		die "Error polling challenge: $status $r->{reason}\n";
-	}
-
-	my $json = decode_json($r->{'content'});
+	my ($r, $json) = $s->_post($url, undef); # POST-as-GET
 	$json->{'status'};
 }
 
@@ -267,32 +234,21 @@ sub new_cert {
 	  'csr'      => encode_base64url($csr)
 	};
 
-	my $r = $s->_post($finalize_url, $req);
-
-	if ( $r->{'status'} != 200 ) {
-		die "Error signing certificate: $r->{status} $r->{reason}\n";
-	}
+	my ($r) = $s->_post($finalize_url, $req);
 
 	# Poll the order url to see if there is a certificate to fetch
-	$r = $s->_post($order_url, undef); # POST-as-GET
-	if ( $r->{'status'} != 200 ) {
-		die "Error polling order status: $r->{status} $r->{reason}\n";
-	}
+	my $order_polled;
+	($r, $order_polled) = $s->_post($order_url, undef); # POST-as-GET
 
-	my $order_polled = decode_json($r->{'content'});
 	my $cert_url = $order_polled->{'certificate'};
 	if ( !$cert_url ) {
 		die "No certificate!";
 	}
 
 	# POST-as-GET
-	$r = $s->_post($cert_url, undef, 0, 'application/pem-certificate-chain');
-
-	if ( $r->{'status'} != 200 ) {
-		die "Error getting certificate: $r->{status} $r->{reason}\n";
-	}
-
-	my @chain = _cert_split_chain($r->{'content'});
+	my $pemchain;
+	($r, $pemchain) = $s->_post($cert_url, undef, {accept => 'application/pem-certificate-chain'});
+	my @chain = _cert_split_chain($pemchain);
 	\@chain;
 }
 
@@ -315,11 +271,13 @@ sub kid_set {
 }
 
 sub _post {
-	my ($s, $url, $payload, $use_jwk, $accept) = @_;
+	my ($s, $url, $payload, $opts) = @_;
+	my $accept          = exists $opts->{'accept'} ? $opts->{'accept'} : 'application/json';
+	my $use_jwk         = $opts->{'use_jwk'} ? 1 : 0;
+	my $expected_status = exists $opts->{'expected_status'} ? $opts->{'expected_status'} : 200;
+
 	my $http = $s->{'http'};
 	my $jws  = $s->{'jws'};
-
-	$accept = 'application/json' if !defined $accept;
 
 	my $headers = {
 		'Content-Type' => 'application/jose+json',
@@ -344,7 +302,14 @@ sub _post {
 		die "Got Content-Type \"$printable\", not \"$accept\" as expected\n";
 	}
 
-	$r;
+	my $ret = $ct eq 'application/json'
+	  ? decode_json($r->{'content'}) : $r->{'content'};
+
+	if (wantarray) {
+		return ($r, $ret);
+	}
+
+	return $ret;
 }
 
 sub nonce_push {
