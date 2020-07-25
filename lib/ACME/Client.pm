@@ -36,19 +36,13 @@ sub new {
 	my $directory = $args{'directory'} || croak "directory parameter missing";
 
 	my $jws = ACME::Client::JWS->new();
-	my $http = HTTP::Tiny->new(
-	  'verify_SSL'      => 1,
-	  'default_headers' => {
-	    'Accept'       => 'application/json',
-	    'Content-Type' => 'application/jose+json'
-  	  }
-  	);
+	my $http = HTTP::Tiny->new('verify_SSL' => 1 );
 
 	bless {
 	  'jws'           => $jws,
 	  'http'          => $http,
 		'location'      => undef,
-	  'nonce'         => undef, # replay-detection
+	  'nonces'        => [],     # replay-detection
 	  'directory'     => undef,  # links loaded from /directory
 		'tos'           => undef,
 		'directory_url' => $directory
@@ -82,6 +76,8 @@ sub initialize {
 
 	# Load directory, containing uris for each supported api request
 	my $r = $http->get($directory, $options);
+	$s->nonce_push($r);
+
 	my $directory_raw = decode_json($r->{'content'});
 	if ( !exists $directory_raw->{'newOrder'} ) {
 		die "Failed to detect presence of ACMEv2 support in CA directory\n";
@@ -90,7 +86,6 @@ sub initialize {
 	$s->{'directory'} = $directory_validator->process($directory_raw);
 	my $meta = $directory_meta_validator->process($directory_raw->{'meta'});
 	$s->{'tos'} = $meta->{'termsOfService'};
-	$s->_update_nonce($r);
 
 	1;
 }
@@ -111,14 +106,13 @@ sub _post {
 		'Accept'       => $accept
 	};
 
-	$s->_update_nonce(undef);
-	my $signed = $jws->sign($payload, { url => $url, nonce => $s->{'nonce'} }, $use_jwk);
+	my $nonce = $s->nonce_shift();
+	my $signed = $jws->sign($payload, { url => $url, nonce => $nonce }, $use_jwk);
 	my $r  = $http->post($url, { content => $signed, headers => $headers });
 	my $h  = $r->{'headers'};
 	my $ct = $h->{'content-type'};
 
-	$s->{'nonce'} = undef;
-	$s->_update_nonce($r);
+	$s->nonce_push($r);
 	$s->_check_error($r);
 
 	if ( !defined $ct ) {
@@ -131,41 +125,6 @@ sub _post {
 	}
 
 	$r;
-}
-
-# Update nonce
-sub _update_nonce {
-	my ($s, $resp) = @_;
-
-	# Try and find it in passed response (often available with ACMEv1)
-	if ( defined $resp ) {
-		my $headers = $resp->{'headers'};
-		if ( my $nonce = $headers->{'replay-nonce'} ) {
-			$s->{'nonce'} = $nonce;
-			return 1;
-		}
-	}
-
-	# If we didnt get it, and dont have it, get new
-	if ( defined $s->{'nonce'} ) {
-		return 1;
-	}
-
-	$s->{'nonce'} = $s->_get_nonce;
-}
-
-sub _get_nonce {
-	my ($s) = @_;
-	my $http = $s->{'http'};
-	my $url  = $s->directory('newNonce');
-
-	my $resp = $http->head($url);
-	my $headers = $resp->{'headers'};
-	if ( my $nonce = $headers->{'replay-nonce'} ) {
-		return $nonce;
-	}
-
-	die "No Replay-Nonce in CA response! url: $url";
 }
 
 sub newAccount {
@@ -386,6 +345,39 @@ sub new_cert {
 
 	my @chain = _cert_split_chain($r->{'content'});
 	\@chain;
+}
+
+sub nonce_push {
+	my ($s, $req) = @_;
+	my $hdr = $req->{'headers'};
+	my $nonce = $hdr->{'replay-nonce'};
+
+	if ( !defined $nonce ) {
+		return;
+	}
+
+	push @{$s->{'nonces'}}, $nonce;
+	1;
+}
+
+sub nonce_shift {
+	my ($s) = @_;
+	my $nonces = $s->{nonces};
+	my $nonce = shift @{$nonces};
+
+	if ( defined $nonce ) {
+		return $nonce;
+	}
+
+	# gotta fetch some, then.
+	my $http = $s->{'http'};
+	my $url = $s->directory('newNonce');
+	my $req = $http->head($url);
+	if ( !$req->{'success'} ) {
+		die "failed to get nonce from $url";
+	}
+	$s->nonce_push($req);
+	$s->nonce_shift;
 }
 
 sub _check_error {
