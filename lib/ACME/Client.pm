@@ -100,13 +100,13 @@ sub directory { $_[0]->{'directory'}->{$_[1]} or die "request name \"$_[1]\" not
 sub tos       { $_[0]->{'tos'}; }
 
 sub _post {
-	my ($s, $url, $payload, $use_jwk) = @_;
+	my ($s, $url, $payload, $use_jwk, $headers) = @_;
 	my $http = $s->{'http'};
 	my $jws  = $s->{'jws'};
 
 	$s->_update_nonce(undef);
 	my $signed = $jws->sign($payload, { url => $url, nonce => $s->{'nonce'} }, $use_jwk);
-	my $r = $http->post($url, { content => $signed });
+	my $r = $http->post($url, { content => $signed, headers => $headers });
 	$s->{'nonce'} = undef;
 	$s->_update_nonce($r);
 	$s->_check_error($r);
@@ -390,7 +390,9 @@ sub new_cert {
 		die "No certificate!";
 	}
 
-	$r = $s->_post($cert_url, undef); # POST-as-GET
+	$r = $s->_post($cert_url, undef, 0,
+	  {'Accept' => 'application/pem-certificate-chain'}); # POST-as-GET
+
 	if ( $r->{'status'} != 200 ) {
 		die "Error getting certificate: $r->{status} $r->{reason}\n";
 	}
@@ -406,8 +408,7 @@ sub _check_error {
 	# Stuff we output to terminal, so be careful.
 	state $error_validator = ACNE::Validator->new(
 		'type'        => { validator => [\&ACNE::Validator::REGEX, qr/^urn:ietf:params:acme:error:(\w+)$/x] },
-		'detail'      => { validator => [\&ACNE::Validator::PRINTABLE] },
-		'status'      => { validator => [\&ACNE::Validator::INT] }
+		'detail'      => { validator => [\&ACNE::Validator::PRINTABLE] }
 	);
 
 	if ( !$r->{'success'} ) {
