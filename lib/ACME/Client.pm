@@ -49,19 +49,6 @@ sub new {
 	} => $class;
 }
 
-sub pkey_set {
-	my ($s, $pkey) = @_;
-	my $jws = $s->{'jws'};
-	$jws->pkey_set($pkey);
-}
-
-sub kid_set {
-	my ($s, $kid) = @_;
-	my $jws = $s->{'jws'};
-	$jws->kid_set($kid);
-	$s->{'location'} = $kid;
-}
-
 sub initialize {
 	my ($s) = @_;
 	my $http      = $s->{'http'};
@@ -88,43 +75,6 @@ sub initialize {
 	$s->{'tos'} = $meta->{'termsOfService'};
 
 	1;
-}
-
-sub jws       { $_[0]->{'jws'}; }
-sub directory { $_[0]->{'directory'}->{$_[1]} or die "request name \"$_[1]\" not in directory"; }
-sub tos       { $_[0]->{'tos'}; }
-
-sub _post {
-	my ($s, $url, $payload, $use_jwk, $accept) = @_;
-	my $http = $s->{'http'};
-	my $jws  = $s->{'jws'};
-
-	$accept = 'application/json' if !defined $accept;
-
-	my $headers = {
-		'Content-Type' => 'application/jose+json',
-		'Accept'       => $accept
-	};
-
-	my $nonce = $s->nonce_shift();
-	my $signed = $jws->sign($payload, { url => $url, nonce => $nonce }, $use_jwk);
-	my $r  = $http->post($url, { content => $signed, headers => $headers });
-	my $h  = $r->{'headers'};
-	my $ct = $h->{'content-type'};
-
-	$s->nonce_push($r);
-	$s->_check_error($r);
-
-	if ( !defined $ct ) {
-		die "No Content-Type provided by server\n";
-	}
-
-	if ( $accept ne $ct ) {
-		my $printable = ACNE::Validator::PRINTABLE($ct);
-		die "Got Content-Type \"$printable\", not \"$accept\" as expected\n";
-	}
-
-	$r;
 }
 
 sub newAccount {
@@ -345,6 +295,56 @@ sub new_cert {
 
 	my @chain = _cert_split_chain($r->{'content'});
 	\@chain;
+}
+
+sub jws       { $_[0]->{'jws'}; }
+sub directory { $_[0]->{'directory'}->{$_[1]} or die "request name \"$_[1]\" not in directory"; }
+sub tos       { $_[0]->{'tos'}; }
+
+sub pkey_set {
+	my ($s, $pkey) = @_;
+	my $jws = $s->{'jws'};
+	$jws->pkey_set($pkey);
+}
+
+sub kid_set {
+	my ($s, $kid) = @_;
+	my $jws = $s->{'jws'};
+	$jws->kid_set($kid);
+	$s->{'location'} = $kid;
+}
+
+sub _post {
+	my ($s, $url, $payload, $use_jwk, $accept) = @_;
+	my $http = $s->{'http'};
+	my $jws  = $s->{'jws'};
+
+	$accept = 'application/json' if !defined $accept;
+
+	my $headers = {
+		'Content-Type' => 'application/jose+json',
+		'Accept'       => $accept
+	};
+
+	my $nonce = $s->nonce_shift();
+	my $signed = $jws->sign($payload, { url => $url, nonce => $nonce }, $use_jwk);
+	my $r  = $http->post($url, { content => $signed, headers => $headers });
+	my $h  = $r->{'headers'};
+	my $ct = $h->{'content-type'};
+
+	$s->nonce_push($r);
+	$s->_check_error($r);
+
+	if ( !defined $ct ) {
+		die "No Content-Type provided by server\n";
+	}
+
+	if ( $accept ne $ct ) {
+		my $printable = ACNE::Validator::PRINTABLE($ct);
+		die "Got Content-Type \"$printable\", not \"$accept\" as expected\n";
+	}
+
+	$r;
 }
 
 sub nonce_push {
