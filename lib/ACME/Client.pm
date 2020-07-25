@@ -100,31 +100,37 @@ sub directory { $_[0]->{'directory'}->{$_[1]} or die "request name \"$_[1]\" not
 sub tos       { $_[0]->{'tos'}; }
 
 sub _post {
-	my ($s, $url, $payload, $use_jwk, $headers) = @_;
+	my ($s, $url, $payload, $use_jwk, $accept) = @_;
 	my $http = $s->{'http'};
 	my $jws  = $s->{'jws'};
 
+	$accept = 'application/json' if !defined $accept;
+
+	my $headers = {
+		'Content-Type' => 'application/jose+json',
+		'Accept'       => $accept
+	};
+
 	$s->_update_nonce(undef);
 	my $signed = $jws->sign($payload, { url => $url, nonce => $s->{'nonce'} }, $use_jwk);
-	my $r = $http->post($url, { content => $signed, headers => $headers });
+	my $r  = $http->post($url, { content => $signed, headers => $headers });
+	my $h  = $r->{'headers'};
+	my $ct = $h->{'content-type'};
+
 	$s->{'nonce'} = undef;
 	$s->_update_nonce($r);
 	$s->_check_error($r);
 
+	if ( !defined $ct ) {
+		die "No Content-Type provided by server\n";
+	}
+
+	if ( $accept ne $ct ) {
+		my $printable = ACNE::Validator::PRINTABLE($ct);
+		die "Got Content-Type \"$printable\", not \"$accept\" as expected\n";
+	}
+
 	$r;
-}
-
-sub _post_jwk { shift->_post(@_, 1); }
-
-sub _get {
-	my ($s, $url) = @_;
-	my $http = $s->{'http'};
-
-	$s->_update_nonce(undef);
-	my $resp = $http->get($url);
-	$s->{'nonce'} = undef;
-	$s->_update_nonce($resp);
-	$resp;
 }
 
 # Update nonce
@@ -251,19 +257,9 @@ sub newOrder {
 	my $r = $s->_post($s->directory('newOrder'), $req);
 	my $status = $r->{'status'};
 	my $h      = $r->{'headers'};
-	my $ct     = $h->{'content-type'};
 
 	if ( $status != 201 ) {
 		die "Error requesting challenge: $status $r->{reason}\n";
-	}
-
-	if ( !defined $ct ) {
-		die "No Content-Type provided by server\n";
-	}
-
-	if ( $ct ne 'application/json' ) {
-		my $printable = ACNE::Validator::PRINTABLE($ct);
-		die "Got Content-Type \"$printable\", not application/json as expected\n";
 	}
 
 	my $json = decode_json($r->{'content'});
@@ -349,15 +345,6 @@ sub challengePoll {
 		die "Error polling challenge: $status $r->{reason}\n";
 	}
 
-	if ( !defined $ct ) {
-		die "No Content-Type provided by server\n";
-	}
-
-	if ( $ct ne 'application/json' ) {
-		my $printable = ACNE::Validator::PRINTABLE($ct);
-		die "Got Content-Type \"$printable\", not application/json as expected\n";
-	}
-
 	my $json = decode_json($r->{'content'});
 	$json->{'status'};
 }
@@ -390,8 +377,8 @@ sub new_cert {
 		die "No certificate!";
 	}
 
-	$r = $s->_post($cert_url, undef, 0,
-	  {'Accept' => 'application/pem-certificate-chain'}); # POST-as-GET
+	# POST-as-GET
+	$r = $s->_post($cert_url, undef, 0, 'application/pem-certificate-chain');
 
 	if ( $r->{'status'} != 200 ) {
 		die "Error getting certificate: $r->{status} $r->{reason}\n";
