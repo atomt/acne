@@ -28,7 +28,7 @@ my $directory_validator = ACNE::Validator->new(
 	'keyChange'   => $https_uri
 );
 my $directory_meta_validator = ACNE::Validator->new(
-	'termsOfService' => $httpx_uri
+	'termsOfService' => { validator => [\&ACNE::Validator::PRINTABLE] }
 );
 
 sub new {
@@ -217,10 +217,9 @@ sub newOrder {
 }
 
 sub challenge {
-	my ($s, $url, $auth) = @_;
-	my $req = { 'resource' => 'challenge', 'keyAuthorization' => $auth };
+	my ($s, $url) = @_;
 
-	my $r = $s->_post($url, $req);
+	my $r = $s->_post($url, {});
 	if ( $r->{'status'} != 200 ) {
 		die "Error triggering challenge: $r->{status} $r->{reason}\n";
 	}
@@ -300,6 +299,7 @@ sub new_cert {
 sub jws       { $_[0]->{'jws'}; }
 sub directory { $_[0]->{'directory'}->{$_[1]} or die "request name \"$_[1]\" not in directory"; }
 sub tos       { $_[0]->{'tos'}; }
+sub ct_parse  { (split(/;/, $_[0]))[0]; }
 
 sub pkey_set {
 	my ($s, $pkey) = @_;
@@ -330,7 +330,7 @@ sub _post {
 	my $signed = $jws->sign($payload, { url => $url, nonce => $nonce }, $use_jwk);
 	my $r  = $http->post($url, { content => $signed, headers => $headers });
 	my $h  = $r->{'headers'};
-	my $ct = $h->{'content-type'};
+	my $ct = ct_parse($h->{'content-type'});
 
 	$s->nonce_push($r);
 	$s->_check_error($r);
@@ -392,7 +392,7 @@ sub _check_error {
 
 	if ( !$r->{'success'} ) {
 		my $h = $r->{'headers'};
-		my $t = $h->{'content-type'};
+		my $t = ct_parse($h->{'content-type'});
 
 		if ( defined $t && $t eq 'application/problem+json' ) {
 			my ($data, $err) = $error_validator->process(decode_json($r->{'content'}));

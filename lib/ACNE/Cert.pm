@@ -377,7 +377,7 @@ sub domainAuth {
 		chmod 644, $path;
 
 		# Notify CA to go fetch
-		$acme->challenge($challenge->{'url'}, $keyauth);
+		$acme->challenge($challenge->{'url'});
 	}
 
 	for my $challenge ( @challenges ) {
