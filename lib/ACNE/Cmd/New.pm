@@ -93,30 +93,17 @@ sub run {
 	say ' Key ', $cert->getKeyConf;
 	say ' Roll key ', $cert->getRollKey ? 'Yes' : 'No';
 	say ' Run ', $run ? join(' ', @$run) : 'none';
-
 	say '';
-	say 'Running pre-flight tests';
+
 	$cert->preflight;
-
-	say '';
-	say "Authorizing domains";
-	$cert->authorize($ca);
-
-	say '';
-	say "Issuing certificate";
+	$cert->order($ca);
 	$cert->issue($ca);
 	$cert->save;
-
-	say '';
-	say "Installing certificate";
 	$cert->activate;
 
-	say '';
 	say "Issued certificate expires ", scalar localtime($cert->getNotAfter), " GMT";
 	say "Automatic renew after ", scalar localtime($cert->getRenewAfter), " GMT";
 
-	say '';
-	say "** Running postinst hooks **";
 	ACNE::Cert::_runpostinst();
 }
 

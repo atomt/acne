@@ -123,24 +123,31 @@ sub updateAccount {
 sub newOrder {
 	my ($s, @domains) = @_;
 
-	state $identifier_validator = ACNE::Validator->new(
-		type  => {
-			validator => [sub { die "only \"dns\" is supported\n" if $_[0] ne 'dns'}]
-		},
-		value => {
-			validator => [\&ACNE::Validator::PRINTABLE]
-		}
-	);
+	my $req = { 'identifiers' => [] };
+	foreach my $domain ( @domains ) {
+		push @{$req->{'identifiers'}}, {'type' => 'dns', 'value' => $domain};
+	}
+
+	my ($json, $h) = $s->_post($s->directory('newOrder'), $req, {expected_status => 201});
+
+	$json->{'location'} = $h->{'location'}
+	  or die "newOrder: missing HTTP header `location`\n";
+
+	return $json;
+}
+
+sub authorization {
+	my ($s, $url) = @_;
+
 	state $validator = ACNE::Validator->new(
 		status => {
-			default   => 'pending',
 			validator => [\&ACNE::Validator::ENUM, {
-				unknown    => 'unknown',
-				pending    => 'pending',
-				processing => 'processing',
-				valid      => 'valid',
-				invalid    => 'invalid',
-				revoked    => 'revoked'
+				pending     => 'pending',
+				valid       => 'valid',
+				invalid     => 'invalid',
+				deactivated => 'deactivated',
+				expired     => 'expired',
+				revoked     => 'revoked'
 			}]
 		},
 		expires => {
@@ -148,58 +155,55 @@ sub newOrder {
 			validator => [\&ACNE::Validator::PRINTABLE] # FIXME MAYBE RFC3339 validator
 		}
 	);
-
-	my $req = {};
-	my @identifiers;
-	foreach my $domain ( @domains ) {
-		push @identifiers, {'type' => 'dns', 'value' => $domain};
-	}
-	$req->{'identifiers'} = \@identifiers;
-
-	my ($json, $h) = $s->_post($s->directory('newOrder'), $req, {expected_status => 201});
-
-	my $location = $h->{'location'};
-	my $authorizations = delete $json->{'authorizations'};
-	my $finalize = delete $json->{'finalize'};
-	my @challenges;
-	for my $authorization ( @$authorizations ) {
-		my $json = $s->_post($authorization, undef); # post-as-get
-
-		# contains the challenges
-		my $identifier = $identifier_validator->process(delete $json->{'identifier'});
-
-		# The challenges server supports for this dns name.
-		# Validation of challenge is left to the code handling challenges.
-		my $_challenges = delete $json->{'challenges'}
-		  or die "No challenges in json from server\n";
-
-		if ( ref $_challenges ne 'ARRAY' ) {
-			die "challenges in json from server not a list\n";
+	state $identifier_validator = ACNE::Validator->new(
+		type  => {
+			validator => [sub { die "only \"dns\" is supported\n" if $_[0] ne 'dns'; $_[0]}]
+		},
+		value => {
+			validator => [\&ACNE::Validator::PRINTABLE]
 		}
-
-		push @challenges, @$_challenges;
-
-		# We should be left with: status (default pending), expires (RFC3339, optional)
-		# XXX filter challenges that are already status = 'valid'
-		my $rest = $validator->process($json);
-		my $astatus = $rest->{'status'};
-
-		if ( $astatus ne 'pending' and $astatus ne 'valid' ) {
-  		die "status of authorization is not pending or valid\n";
+	);
+	state $challenge_validator = ACNE::Validator->new(
+		type => {
+			validator => [\&ACNE::Validator::PRINTABLE]
+		},
+		url => {
+			validator => [\&ACNE::Validator::PRINTABLE]
+		},
+		token => {
+			validator => [\&ACNE::Validator::PRINTABLE]
 		}
-	}
+	);
 
-	{
-		'finalize'   => $finalize,
-		'challenges' => \@challenges,
-		'location'   => $location
-	};
+	my $auth = $s->_post($url, undef); # POST-as-GET
+
+	die "No identifier in CA response for $url!"
+	  if !exists $auth->{'identifier'};
+
+	die "No challenges in CA response for $url!"
+	  if !exists $auth->{'challenges'};
+
+	my %temp = ( 'challenges' => [] );
+	$temp{'identifier'} = $identifier_validator->process(delete $auth->{'identifier'});
+
+	for my $challenge ( @{$auth->{'challenges'}} ) {
+		push @{$temp{'challenges'}}, scalar $challenge_validator->process($challenge);
+	}
+	delete $auth->{'challenges'};
+
+	my $rest = $validator->process($auth);
+	my %ret = (%temp, %{$rest});
+
+	return \%ret;
 }
 
 sub challenge {
 	my ($s, $url) = @_;
-
 	$s->_post($url, {});
+}
+
+sub challengePoll {
+	my ($s, $url) = @_;
 
 	# Wait for ready
 	while ( 1 ) {
@@ -376,45 +380,6 @@ sub _cert_split_chain {
 	}
 
 	return @chain;
-}
-
-## XXX needs updating and use in new_cert
-sub _cert_get {
-	my ($s, $uri) = @_;
-	my $http = $s->{'http'};
-
-	my $r = $http->get($uri);
-
-	if ( $r->{'status'} != 200 ) {
-		$s->_check_error($r);
-		die "_cert_get $r->{status} $r->{reason}";
-	}
-
-	my $links = _links($r->{'headers'});
-	my $next  = $links->{'up'};
-
-	return ($r->{'content'}, $next);
-}
-
-sub _links {
-	my ($headers) = @_;
-	my $ret = {};
-
-	my $links = $headers->{'link'}
-	  or return $ret;
-
-	my $http_link_re = qr/^\<(.*)\>;rel=\"(.*)\"$/;
-
-	for my $entry ( ref $links eq 'ARRAY' ? @$links : $links ) {
-		if ( my ($uri, $rel) = $entry =~ $http_link_re ) {
-			$ret->{$rel} = $uri;
-			#say $link, ' ', $rel;
-		}
-		else {
-			die "bullshit link header \"$entry\"\n";
-		}
-	}
-	$ret;
 }
 
 1;

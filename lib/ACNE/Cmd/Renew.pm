@@ -103,8 +103,6 @@ sub run {
 		}
 	}
 
-	say '';
-	say '** Running pre-flight tests **';
 	my @checked;
 	for my $cert ( @loaded ) {
 		my $id = $cert->getId;
@@ -140,19 +138,11 @@ sub run {
 
 		my $ca = $ca{$ca_id};
 		eval {
-			say "Authorizing domains";
-			$cert->authorize($ca);
-
-			say '';
-			say "Issuing certificate";
+			$cert->order($ca);
 			$cert->issue($ca);
 			$cert->save;
-
-			say '';
-			say "Installing certificate";
 			$cert->activate;
 
-			say '';
 			say "Certificate expires ", scalar localtime($cert->getNotAfter), " GMT"; # ;)
 			say "Automatic renew after ", scalar localtime($cert->getRenewAfter), " GMT";
 
@@ -164,10 +154,9 @@ sub run {
 			say STDERR 'Skipping ', $id;
 			$exitcode = 1;
 		}
+		say '';
 	}
 
-	say '';
-	say "** Running postinst hooks **";
 	ACNE::Cert::_runpostinst();
 
 	exit $exitcode;

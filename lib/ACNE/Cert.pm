@@ -234,12 +234,12 @@ sub preflight {
 
 	my $tester = $s->domainAuthTestSetup;
 	for my $domain ( @dns ) {
+		say "Running pre-flight test for $domain";
 		eval { $tester->test($domain) };
 		if ( $@ ) {
-			print STDERR " $domain FAIL: $@";
+			say STDERR "Pre-flight test for $domain failed: ", $@;
 		}
 		else {
-			say " $domain OK!";
 			push @tested_ok, $domain;
 		}
 	}
@@ -250,45 +250,91 @@ sub preflight {
 		die "Some dns names failed the pre-flight check - aborting\n";
 	}
 
+	say "Pre-flight testing succeeded.";
 	$s->{'tested'} = \@tested_ok;
 
 	1;
 }
 
-sub authorize {
-	my ($s, $ca) = @_;
+sub order {
+	my ($s, $acme) = @_;
+	my $acmeroot = catdir(@{$config->{'challenge'}->{'http01fs'}->{'acmeroot'}});
 	my @tested = @{$s->{'tested'}};
-	my @authorized;
 
 	if ( @tested == 0 ) {
-		croak "No dns names was successfully tested";
+		croak "No dns names has successfully passed pre-flight testing";
 	}
 
-	# FIXME
-	# domainAUth should be split into get+write challenges, notify CA and poll
-	# status parts. this would make it faster. but check limits first, say
-	# outstanding challenges.
-	$s->domainAuth($ca, @tested);
-#	for my $domain ( @tested ) {
-#		eval { $s->domainAuth($ca, $domain) };
-#		if ( $@ ) {
-#			print STDERR " $domain FAIL: $@";
-#		}
-#		else {
-#			say " $domain OK!";
-#			push @authorized, $domain;
-#		}
-#	}
+	my $order = $acme->newOrder(@tested);
+	say "New order ", $order->{'location'};
 
-	# FIXME Ditto as for pre-flight
-	@authorized = @tested;
-	#if ( @tested != @authorized ) {
-	#	die "Some dns names failed authorization by authority - aborting\n";
-	#}
+	# Fetch authorizations
+	say "Fetching authorizations";
+	my @solve;
+	for my $url ( @{$order->{'authorizations'}} ) {
+		my $auth = $acme->authorization($url);
+		my $challenges = $auth->{'challenges'};
+		my $status     = $auth->{'status'};
+		my $id         = $auth->{'identifier'}->{'value'};
+		
+		if ( !grep { $_ eq $id } @tested ) {
+			die "Identifier `$id` provided by CA do not match any dns name we requested?!";
+		}
 
-	$s->{'authorized'} = \@authorized;
+		# Already taken care of (CA might re-use authorizations)
+		if ( $status eq 'valid' ) {
+			say "$id authorization already valid; skipping it.";
+			push @{$s->{'authorized'}}, $id;
+			next;
+		}
 
-	1;
+		if ( $status ne 'pending' ) {
+			die "Authorization has status `$status`, not `pending` or `valid`, aborting.\n";
+		}
+
+		my @supported = grep { $_->{'type'} eq 'http-01' } @{$challenges};
+		die "No supported challenges for identifier $id"
+		  if @supported == 0;
+
+		push @solve, { 'identifier' => $id, 'challenges' => \@supported };
+	}
+
+	# Write out local challenges
+	for ( @solve ) {
+		my $challenges = $_->{'challenges'};
+		my $id         = $_->{'identifier'};
+
+		for my $challenge ( @{$challenges} ) {
+			my $token   = $challenge->{'token'};
+			my $thumb   = $acme->jws->thumbprint;
+			my $keyauth = $token . '.' . $thumb;
+			my $path    = catfile($acmeroot, $token);
+			my $url     = $challenge->{'url'};
+
+			# Publish
+			say "Publishing challenge for $id";
+			ACNE::Util::File::writeStr($keyauth, $path);
+			chmod 644, $path;
+			$acme->challenge($url);
+		}
+	}
+
+	# Poll until all have become valid
+	for ( @solve ) {
+		my $challenges = $_->{'challenges'};
+		my $id         = $_->{'identifier'};
+		for my $challenge ( @{$challenges} ) {
+			my $token = $challenge->{'token'};
+			my $url = $challenge->{'url'};
+			my $path = catfile($acmeroot, $token);
+			say "Polling for $id";
+			$acme->challengePoll($url);
+			unlink $path;
+			push @{$s->{'authorized'}}, $id;
+		}
+	}
+
+	$s->{'order'} = $order;
 }
 
 sub issue {
@@ -301,10 +347,10 @@ sub issue {
 		croak "No dns names was successfully authorized";
 	}
 
-	#say "Making Certificate Singing Request";
+	say "Making Certificate Singing Request";
 	my $csr = $s->csrGenerate(@authorized);
 
-	#say "Requesting Certificate(s)";
+	say "Requesting Certificate";
 	my $chain = $ca->new_cert($csr, $order);
 
 	$s->{'chain'} = $chain;
@@ -349,45 +395,6 @@ sub ACNE::Cert::AuthTest::test {
 	}
 }
 sub ACNE::Cert::AuthTest::DESTROY { unlink $_[0]->{'path'}; }
-
-sub domainAuth {
-	my ($s, $acme, @domains) = @_;
-	my $acmeroot = catdir(@{$config->{'challenge'}->{'http01fs'}->{'acmeroot'}});
-
-	# Ask CA for authorizations
-	my $order = $acme->newOrder(@domains);
-	$s->{'order'} = $order;
-
- 	my @challenges_all = @{$order->{'challenges'}};
-	my @challenges = grep { $_->{'type'} eq 'http-01' } @challenges_all;
-
-	if ( @challenges == 0 ) {
-		die "No supported challenges provided by CA\n";
-	}
-
-	for my $challenge ( @challenges ) {
-		# Make challenge file
-		my $token     = $challenge->{'token'};
-		my $thumb     = $acme->jws->thumbprint;
-		my $keyauth   = $token . '.' . $thumb;
-		my $path      = catfile($acmeroot, $token);
-
-		# Publish
-		ACNE::Util::File::writeStr($keyauth, $path);
-		chmod 644, $path;
-
-		# Notify CA to go fetch
-		$acme->challenge($challenge->{'url'});
-	}
-
-	for my $challenge ( @challenges ) {
-		my $token = $challenge->{'token'};
-		my $path = catfile($acmeroot, $token);
-		unlink $path;
-	}
-
-	1;
-}
 
 # FIXME most of this probably wants to go to ACNE::OpenSSL::PKCS10
 sub csrGenerate {
