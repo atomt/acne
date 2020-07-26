@@ -4,9 +4,12 @@ use 5.014;
 use warnings FATAL => 'all';
 use autodie;
 
-use ACNE::Common qw($config);
+use ACNE::Common qw($config dbver);
+use ACNE::Util::File;
+
 use Getopt::Long;
-use File::Spec::Functions qw(catdir);
+use File::Spec::Functions qw(catdir catfile);
+use File::Copy qw(cp);
 use English qw(-no_match_vars);
 
 sub run {
@@ -26,6 +29,9 @@ sub run {
 		say STDERR 'This command takes no parameters.';
 		usage_err();
 	}
+
+	# So we can upgrade
+	$ACNE::Common::skip_dbcheck = 1;
 
 	ACNE::Common::config();
 
@@ -70,9 +76,36 @@ sub run {
 	mkdirv($acmeroot, '0755');
 	systemv('chmod', '0755', $acmeroot);
 
+	# convert account info
+	my $accountdb_fp = catdir($store, 'account');
+	if ( dbver($accountdb_fp) < 2 ) {
+		upgradeaccounts_v2($accountdb_fp);
+	}
+
 	systemv('chown', '-R', $uid . ':' . $gid, $store);
+
 	say '';
 	say 'Acne should be ready for use.';
+}
+
+# Upgrade account db and set flag
+sub upgradeaccounts_v2 {
+	my ($accountdb_fp) = @_;
+	my $default_fp = catdir($accountdb_fp, 'default');
+
+	opendir(my $default_dh, $default_fp);
+	while ( my $direntry = readdir $default_dh ) {
+		next if $direntry !~ /^location\.(.+)/;
+		my $ca_id = $1;
+		my $account_fp = catdir($accountdb_fp, $ca_id);
+
+		mkdirv($account_fp, '0700');
+		copyv(catfile($default_fp, 'privkey.pem'), catfile($account_fp, 'privkey.pem'));
+		ACNE::Util::File::touch(catfile($account_fp, 'registered'), undef);
+	}
+
+	# Set flag
+	ACNE::Util::File::writeStr(2, catfile($accountdb_fp, 'dbver'));
 }
 
 # Make a crontab entry with fuzzed times
@@ -98,6 +131,11 @@ sub installcron {
 sub mkdirv {
 	my ($fp, $perms) = @_;
 	-e $fp ? say "$fp already exists." : systemv('mkdir', '-p', '-m', $perms, $fp);
+}
+
+sub copyv {
+	say "cp $_[0] $_[1]";
+	cp(@_) or die "Copy failed: $!";
 }
 
 sub systemv {

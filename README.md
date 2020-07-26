@@ -184,4 +184,4 @@ Set the default parameters used when creating a new certificate. With the except
 
 Locally configure alternative Certificate Authorities exposing a ACME API. letsencrypt and letsencrypt-staging comes pre-defined.
 
-    ca.internal.host acme-v1.api.example.com
+    ca.internal.directory https://acme-v1.api.example.com/directory
