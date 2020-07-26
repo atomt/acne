@@ -1,3 +1,11 @@
+acne (5-1) unstable; urgency=medium
+
+  * Support for ACMEv2. v1 has been removed.
+
+  * Support for openssl 1.1.x
+
+ -- Andre Tomt <andre@tomt.net>  Sun, 26 Jul 2020 16:02:40 +0200
+
 acne (4-1) unstable; urgency=medium
 
   * Make more robust to smaller ACME API changes
