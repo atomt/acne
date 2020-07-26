@@ -124,6 +124,10 @@ sub config {
 	  if !exists $raw->{'ca'}->{'letsencrypt'}->{'directory'};
 	$raw->{'ca'}->{'letsencrypt-staging'}->{'directory'} = 'https://acme-staging-v02.api.letsencrypt.org/directory'
 	  if !exists $raw->{'ca'}->{'letsencrypt-staging'}->{'directory'};
+	$raw->{'ca'}->{'buypass'}->{'directory'} = 'https://api.buypass.com/acme/directory'
+	  if !exists $raw->{'ca'}->{'buypass'}->{'directory'};
+	$raw->{'ca'}->{'buypass-staging'}->{'directory'} = 'https://api.test4.buypass.no/acme/directory'
+	  if !exists $raw->{'ca'}->{'buypass-staging'}->{'directory'};
 
 	# Verify each grouping and remove when done, if we have any left at the end, bail.
 	my $system = delete $raw->{'system'};
