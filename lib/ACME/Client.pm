@@ -37,7 +37,7 @@ sub new {
 	my $verify_tls = $args{'verify_tls'} ? 1 : 0;
 
 	my $jws = ACME::Client::JWS->new();
-	my $http = HTTP::Tiny->new('verify_SSL' => $verify_tls );
+	my $http = HTTP::Tiny->new('verify_SSL' => $verify_tls);
 
 	bless {
 	  'jws'           => $jws,
