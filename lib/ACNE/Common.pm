@@ -30,7 +30,7 @@ my $system_validator = ACNE::Validator->new(
 
 my $defaults_validator = ACNE::Validator->new(
 	'renew-left' => {
-		default   => 10,
+		default   => 25,
 		validator => [\&ACNE::Validator::INT, 1, 356]
 	},
 	'ca'         => {
