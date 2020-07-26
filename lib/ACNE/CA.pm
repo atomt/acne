@@ -54,7 +54,7 @@ sub initialize {
 
 	# Request kid from CA
 	eval {
-		my ($kid) = $s->newAccount(onlyReturnExisting => 1);
+		my ($account, $kid) = $s->newAccount(onlyReturnExisting => 1);
 		$s->kid_set($kid);
 		if ( $kid && !$s->registered_db ) {
 			$s->registered_db_set;

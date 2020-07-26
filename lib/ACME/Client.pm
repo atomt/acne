@@ -92,16 +92,15 @@ sub newAccount {
 		$req{$key} = $req{$key} ? JSON::PP::true : JSON::PP::false;
 	}
 
-	my ($r, $account) = $s->_post($s->directory('newAccount'), \%req,
+	my ($account, $h) = $s->_post($s->directory('newAccount'), \%req,
 	  {use_jwk => 1, expected_status => $http_expect_status});
-	my $h = $r->{'headers'};
 
 	if ( !exists $h->{'location'} ) {
 		die "ACME server did not provide a account location.";
 	}
 
 	if (wantarray) {
-		return ($h->{'location'}, $account);
+		return ($account, $h->{'location'});
 	}
 
 	return $account;
@@ -116,6 +115,7 @@ sub updateAccount {
 		next if !exists $req{$key};
 		$req{$key} = $req{$key} ? JSON::PP::true : JSON::PP::false;
 	}
+
 	return scalar $s->_post($s->{'location'}, \%req,
 	  {expected_status => $http_expect_status});
 }
@@ -156,15 +156,14 @@ sub newOrder {
 	}
 	$req->{'identifiers'} = \@identifiers;
 
-	my ($r, $json) = $s->_post($s->directory('newOrder'), $req, {expected_status => 201});
-	my $h      = $r->{'headers'};
+	my ($json, $h) = $s->_post($s->directory('newOrder'), $req, {expected_status => 201});
 
 	my $location = $h->{'location'};
 	my $authorizations = delete $json->{'authorizations'};
 	my $finalize = delete $json->{'finalize'};
 	my @challenges;
 	for my $authorization ( @$authorizations ) {
-		my ($r, $json) = $s->_post($authorization, undef); # post-as-get
+		my $json = $s->_post($authorization, undef); # post-as-get
 
 		# contains the challenges
 		my $identifier = $identifier_validator->process(delete $json->{'identifier'});
@@ -200,11 +199,13 @@ sub newOrder {
 sub challenge {
 	my ($s, $url) = @_;
 
-	my ($r) = $s->_post($url, {});
+	$s->_post($url, {});
 
 	# Wait for ready
 	while ( 1 ) {
-		my $status = $s->challengePoll($url);
+		my $ch = $s->_post($url, undef); # POST-as-GET
+		my $status = $ch->{'status'};
+
 		if ( $status eq 'pending' ) {
 			sleep 2;
 		}
@@ -219,12 +220,6 @@ sub challenge {
 	1;
 }
 
-sub challengePoll {
-	my ($s, $url) = @_;
-	my ($r, $json) = $s->_post($url, undef); # POST-as-GET
-	$json->{'status'};
-}
-
 sub new_cert {
 	my ($s, $csr, $order) = @_;
 	my $finalize_url = $order->{'finalize'};
@@ -235,20 +230,17 @@ sub new_cert {
 	  'csr'      => encode_base64url($csr)
 	};
 
-	my ($r) = $s->_post($finalize_url, $req);
+	$s->_post($finalize_url, $req);
 
 	# Poll the order url to see if there is a certificate to fetch
-	my $order_polled;
-	($r, $order_polled) = $s->_post($order_url, undef); # POST-as-GET
-
+	my $order_polled = $s->_post($order_url, undef); # POST-as-GET
 	my $cert_url = $order_polled->{'certificate'};
 	if ( !$cert_url ) {
 		die "No certificate!";
 	}
 
 	# POST-as-GET
-	my $pemchain;
-	($r, $pemchain) = $s->_post($cert_url, undef, {accept => 'application/pem-certificate-chain'});
+	my $pemchain = $s->_post($cert_url, undef, {accept => 'application/pem-certificate-chain'});
 	my @chain = _cert_split_chain($pemchain);
 	\@chain;
 }
@@ -307,7 +299,7 @@ sub _post {
 	  ? decode_json($r->{'content'}) : $r->{'content'};
 
 	if (wantarray) {
-		return ($r, $ret);
+		return ($ret, $h);
 	}
 
 	return $ret;
