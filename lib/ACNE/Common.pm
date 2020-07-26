@@ -21,6 +21,10 @@ my $system_validator = ACNE::Validator->new(
 	'user' => {
 		default   => 'root',
 		validator => [\&ACNE::Validator::WORD]
+	},
+	'verify-tls' => {
+		default   => 1,
+		validator => [\&ACNE::Validator::BOOL]
 	}
 );
 

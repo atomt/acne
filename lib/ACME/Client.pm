@@ -33,10 +33,11 @@ my $directory_meta_validator = ACNE::Validator->new(
 
 sub new {
 	my ($class, %args) = @_;
-	my $directory = $args{'directory'} || croak "directory parameter missing";
+	my $directory  = $args{'directory'} || croak "directory parameter missing";
+	my $verify_tls = $args{'verify_tls'} ? 1 : 0;
 
 	my $jws = ACME::Client::JWS->new();
-	my $http = HTTP::Tiny->new('verify_SSL' => 1 );
+	my $http = HTTP::Tiny->new('verify_SSL' => $verify_tls );
 
 	bless {
 	  'jws'           => $jws,

@@ -31,8 +31,9 @@ sub new {
 		$directory = 'https://' . $acmeserver . '/directory';
 	}
 
+	my $verify_tls = $config->{'system'}->{'verify-tls'};
 	my $account_dir = catdir(@{$config->{'system'}->{'store'}}, 'account', $ca_id);
-	my $parent = $class->SUPER::new(directory => $directory);
+	my $parent = $class->SUPER::new(directory => $directory, verify_tls => $verify_tls);
 	$parent->{'ca_id'} = $ca_id;
 	$parent->{'account_dir'} = $account_dir;
 	return $parent;
