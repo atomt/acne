@@ -12,169 +12,142 @@ use JSON::PP;
 use HTTP::Tiny;
 use MIME::Base64 qw(encode_base64 encode_base64url);
 
-# Lock directory to HTTPS
-my $https_uri = { validator => [\&ACNE::Validator::REGEX, qr!^(https://.*)$!x] };
-my $directory_validator = ACNE::Validator->new(
-	'new-authz'   => $https_uri,
-	'new-cert'    => $https_uri,
-	'new-reg'     => $https_uri,
-	'revoke-cert' => $https_uri,
-	'key-change'  => $https_uri
+use constant newAccount_bools => qw(
+	termsOfServiceAgreed
+	onlyReturnExisting
 );
 
+# Lock directory to HTTPS
+my $https_uri = { validator => [\&ACNE::Validator::REGEX, qr!^(https://.*)$!x] };
+my $httpx_uri = { validator => [\&ACNE::Validator::REGEX, qr!^(https?://.*)$!x] };
+my $directory_validator = ACNE::Validator->new(
+	'newNonce'    => $https_uri,
+	'newOrder'    => $https_uri,
+	'newAccount'  => $https_uri,
+	'revokeCert'  => $https_uri,
+	'keyChange'   => $https_uri
+);
+my $directory_meta_validator = ACNE::Validator->new(
+	'termsOfService' => { validator => [\&ACNE::Validator::PRINTABLE] }
+);
 
 sub new {
 	my ($class, %args) = @_;
-	my $pkey    = $args{'pkey'}    || croak "pkey parameter missing";
-	my $address = $args{'address'} || croak "baseurl parameter missing";
+	my $directory  = $args{'directory'} || croak "directory parameter missing";
+	my $verify_tls = $args{'verify_tls'} ? 1 : 0;
 
-	my $jws = ACME::Client::JWS->new(
-	  'pkey' => $pkey
-	);
-	my $http = HTTP::Tiny->new(
-	  'verify_SSL'      => 1,
-	  'default_headers' => {
-	    'Accept'       => 'application/json',
-	    'Content-Type' => 'application/json'
-  	  }
-  	);
+	my $jws = ACME::Client::JWS->new();
+	my $http = HTTP::Tiny->new('verify_SSL' => $verify_tls);
 
-	my $s = bless {
-	  'jws'       => $jws,
-	  'http'      => $http,
-	  'nonce'     => undef, # replay-detection
-	  'directory' => undef  # links loaded from /directory
+	bless {
+	  'jws'           => $jws,
+	  'http'          => $http,
+		'location'      => undef,
+	  'nonces'        => [],     # replay-detection
+	  'directory'     => undef,  # links loaded from /directory
+		'tos'           => undef,
+		'directory_url' => $directory
 	} => $class;
-
-	# Load directory, containing uris for each api request
-	my $r = $s->_get('https://' . $address . '/directory');
-	$s->{'directory'} = $directory_validator->process(decode_json($r->{'content'}));
-
-	$s;
 }
 
-sub jws       { $_[0]->{'jws'}; }
-sub directory { $_[0]->{'directory'}->{$_[1]} or die "request name not in directory"; }
+sub initialize {
+	my ($s) = @_;
+	my $http      = $s->{'http'};
+	my $directory = $s->{'directory_url'};
+	my $options = {
+		headers => { 'Accept' => 'application/json' }
+	};
 
-sub _post {
-	my ($s, $url, $payload) = @_;
-	my $http = $s->{'http'};
-	my $jws  = $s->{'jws'};
+	if ( defined $s->{'directory'} ) {
+		return 1;
+	} 
 
-	my $signed = $jws->sign($payload, { nonce => $s->{'nonce'} });
-	my $resp = $http->post($url, { content => $signed });
-	$s->_update_nonce($resp);
-	$resp;
-}
+	# Load directory, containing uris for each supported api request
+	my $r = $http->get($directory, $options);
+	$s->nonce_push($r);
 
-sub _get {
-	my ($s, $url) = @_;
-	my $http = $s->{'http'};
-
-	my $resp = $http->get($url);
-	$s->_update_nonce($resp);
-	$resp;
-}
-
-# Update nonce
-sub _update_nonce {
-	my ($s, $resp) = @_;
-
-	my $headers = $resp->{'headers'};
-	if ( my $nonce = $headers->{'replay-nonce'} ) {
-		$s->{'nonce'} = $nonce;
-	}
-	else {
-		die "No nonce could be aquired! $resp->{status} $resp->{reason}\n";
-	}
-}
-
-
-
-sub new_reg {
-	my ($s, %args) = @_;
-	my $email   = $args{'email'};
-	my $tel     = $args{'tel'};
-	my $created = 0;
-
-	my @contact;
-	push @contact, 'mailto:' . $email if defined $email;
-	push @contact, 'tel:' . $tel      if defined $tel;
-
-	my $req = { 'resource' => 'new-reg' };
-	if ( @contact ) {
-		$req->{'contact'} = \@contact;
+	my $directory_raw = decode_json($r->{'content'});
+	if ( !exists $directory_raw->{'newOrder'} ) {
+		die "Failed to detect presence of ACMEv2 support in CA directory\n";
 	}
 
-	my $r = $s->_post($s->directory('new-reg'), $req);
-
-	my $status = $r->{'status'};
-	if ( $status == 201 ) {
-		$created = 1;
-	}
-	elsif ( $status != 409 ) {
-		_check_error($r);
-		die "Error registering: $status $r->{reason}\n";
-	}
-
-	my $tos = do { my $links = _links($r->{'headers'}); $links->{'terms-of-service'} };
-	my $loc = $r->{'headers'}->{'location'};
-
-	$tos = ACNE::Validator::PRINTABLE($tos) if defined $tos;
-	$loc = ACNE::Validator::PRINTABLE($loc) if defined $loc;
-
-	($created, $loc, $tos);
-}
-
-sub reg {
-	my ($s, $uri, %args) = @_;
-	my $email     = $args{'email'};
-	my $tel       = $args{'tel'};
-	my $agreement = $args{'agreement'};
-
-	my @contact;
-	push @contact, 'mailto:' . $email if defined $email;
-	push @contact, 'tel:' . $tel     if defined $tel;
-
-	my $req = { 'resource' => 'reg' };
-	if ( @contact ) {
-		$req->{'contact'} = \@contact;
-	}
-	if ( defined $agreement ) {
-		$req->{'agreement'} = $agreement;
-	}
-
-	my $r = $s->_post($uri, $req);
-
-	if ( $r->{'status'} != 202 ) {
-		_check_error($r);
-		die "Error updating: $r->{status} $r->{reason}\n";
-	}
+	$s->{'directory'} = $directory_validator->process($directory_raw);
+	my $meta = $directory_meta_validator->process($directory_raw->{'meta'});
+	$s->{'tos'} = $meta->{'termsOfService'};
 
 	1;
 }
 
-sub new_authz {
-	my ($s, $domain) = @_;
+sub newAccount {
+	my ($s, %req) = @_;
+	my $http_expect_status = 201;
 
-	state $identifier_validator = ACNE::Validator->new(
-		type  => {
-			validator => [sub { die "only \"dns\" is supported\n" if $_[0] ne 'dns'}]
-		},
-		value => {
-			validator => [\&ACNE::Validator::PRINTABLE]
-		}
-	);
+	if ( $req{onlyReturnExisting} ) {
+		$http_expect_status = 200;
+	}
+
+	# Switch to JSON bools
+	for my $key (newAccount_bools()) {
+		next if !exists $req{$key};
+		$req{$key} = $req{$key} ? JSON::PP::true : JSON::PP::false;
+	}
+
+	my ($account, $h) = $s->_post($s->directory('newAccount'), \%req,
+	  {use_jwk => 1, expected_status => $http_expect_status});
+
+	if ( !exists $h->{'location'} ) {
+		die "ACME server did not provide a account location.";
+	}
+
+	if (wantarray) {
+		return ($account, $h->{'location'});
+	}
+
+	return $account;
+}
+
+sub updateAccount {
+	my ($s, %req) = @_;
+	my $http_expect_status = 200;
+
+	# Switch to JSON bools
+	for my $key (newAccount_bools()) {
+		next if !exists $req{$key};
+		$req{$key} = $req{$key} ? JSON::PP::true : JSON::PP::false;
+	}
+
+	return scalar $s->_post($s->{'location'}, \%req,
+	  {expected_status => $http_expect_status});
+}
+
+sub newOrder {
+	my ($s, @domains) = @_;
+
+	my $req = { 'identifiers' => [] };
+	foreach my $domain ( @domains ) {
+		push @{$req->{'identifiers'}}, {'type' => 'dns', 'value' => $domain};
+	}
+
+	my ($json, $h) = $s->_post($s->directory('newOrder'), $req, {expected_status => 201});
+
+	$json->{'location'} = $h->{'location'}
+	  or die "newOrder: missing HTTP header `location`\n";
+
+	return $json;
+}
+
+sub authorization {
+	my ($s, $url) = @_;
+
 	state $validator = ACNE::Validator->new(
 		status => {
-			default   => 'pending',
 			validator => [\&ACNE::Validator::ENUM, {
-				unknown    => 'unknown',
-				pending    => 'pending',
-				processing => 'processing',
-				valid      => 'valid',
-				invalid    => 'invalid',
-				revoked    => 'revoked'
+				pending     => 'pending',
+				valid       => 'valid',
+				invalid     => 'invalid',
+				deactivated => 'deactivated',
+				expired     => 'expired',
+				revoked     => 'revoked'
 			}]
 		},
 		expires => {
@@ -182,75 +155,61 @@ sub new_authz {
 			validator => [\&ACNE::Validator::PRINTABLE] # FIXME MAYBE RFC3339 validator
 		}
 	);
-
-	my $req = {
-		'resource'   => 'new-authz',
-		'identifier' => {
-			'type'  => 'dns',
-			'value' => $domain
+	state $identifier_validator = ACNE::Validator->new(
+		type  => {
+			validator => [sub { die "only \"dns\" is supported\n" if $_[0] ne 'dns'; $_[0]}]
+		},
+		value => {
+			validator => [\&ACNE::Validator::PRINTABLE]
 		}
-	};
+	);
+	state $challenge_validator = ACNE::Validator->new(
+		type => {
+			validator => [\&ACNE::Validator::PRINTABLE]
+		},
+		url => {
+			validator => [\&ACNE::Validator::PRINTABLE]
+		},
+		token => {
+			validator => [\&ACNE::Validator::PRINTABLE]
+		}
+	);
 
-	my $r = $s->_post($s->directory('new-authz'), $req);
-	my $status = $r->{'status'};
-	my $h      = $r->{'headers'};
-	my $ct     = $h->{'content-type'};
+	my $auth = $s->_post($url, undef); # POST-as-GET
 
-	if ( $status != 201 ) {
-		_check_error($r);
-		die "Error requesting challenge: $status $r->{reason}\n";
+	die "No identifier in CA response for $url!"
+	  if !exists $auth->{'identifier'};
+
+	die "No challenges in CA response for $url!"
+	  if !exists $auth->{'challenges'};
+
+	my %temp = ( 'challenges' => [] );
+	$temp{'identifier'} = $identifier_validator->process(delete $auth->{'identifier'});
+
+	for my $challenge ( @{$auth->{'challenges'}} ) {
+		push @{$temp{'challenges'}}, scalar $challenge_validator->process($challenge);
 	}
+	delete $auth->{'challenges'};
 
-	if ( !defined $ct ) {
-		die "No Content-Type provided by server\n";
-	}
+	my $rest = $validator->process($auth);
+	my %ret = (%temp, %{$rest});
 
-	if ( $ct ne 'application/json' ) {
-		my $printable = ACNE::Validator::PRINTABLE($ct);
-		die "Got Content-Type \"$printable\", not application/json as expected\n";
-	}
-
-	my $json = decode_json($r->{'content'});
-
-	# A dict of strings, type = dns and value dnsname
-	my $identifier = $identifier_validator->process(delete $json->{'identifier'});
-
-	# The challenges server supports for this dns name.
-	# Validation of challenge is left to the code handling challenges.
-	my $challenges = delete $json->{'challenges'}
-	  or die "No challenges in json from server\n";
-
-	if ( ref $challenges ne 'ARRAY' ) {
-		die "challenges in json from server not a list\n";
-	}
-
-	# List of lists. If not set all challenges must be met.
-	delete $json->{'combinations'};
-
-	# We should be left with: status (default pending), expires (RFC3339, optional)
-	my $rest = $validator->process($json);
-	my $astatus = $rest->{'status'};
-
-	if ( $astatus ne 'pending' and $astatus ne 'valid' ) {
-		die "status of authorization is not pending or valid\n";
-	}
-
-	@$challenges;
+	return \%ret;
 }
 
 sub challenge {
-	my ($s, $url, $auth) = @_;
-	my $req = { 'resource' => 'challenge', 'keyAuthorization' => $auth };
+	my ($s, $url) = @_;
+	$s->_post($url, {});
+}
 
-	my $r = $s->_post($url, $req);
-	if ( $r->{'status'} != 202 ) {
-		_check_error($r);
-		die "Error triggering challenge: $r->{status} $r->{reason}\n";
-	}
+sub challengePoll {
+	my ($s, $url) = @_;
 
 	# Wait for ready
 	while ( 1 ) {
-		my $status = $s->challengePoll($url);
+		my $ch = $s->_post($url, undef); # POST-as-GET
+		my $status = $ch->{'status'};
+
 		if ( $status eq 'pending' ) {
 			sleep 2;
 		}
@@ -265,72 +224,137 @@ sub challenge {
 	1;
 }
 
-sub challengePoll {
-	my ($s, $url) = @_;
+sub new_cert {
+	my ($s, $csr, $order) = @_;
+	my $finalize_url = $order->{'finalize'};
+	my $order_url = $order->{'location'};
 
-	my $r = $s->_get($url);
-	my $status = $r->{'status'};
-	my $h      = $r->{'headers'};
-	my $ct     = $h->{'content-type'};
+	# Send CSR to finilizaton url
+	my $req = {
+	  'csr'      => encode_base64url($csr)
+	};
 
-	if ( $status != 202 ) {
-		_check_error($r);
-		die "Error polling challenge: $status $r->{reason}\n";
+	$s->_post($finalize_url, $req);
+
+	# Poll the order url to see if there is a certificate to fetch
+	my $order_polled = $s->_post($order_url, undef); # POST-as-GET
+	my $cert_url = $order_polled->{'certificate'};
+	if ( !$cert_url ) {
+		die "No certificate!";
 	}
+
+	# POST-as-GET
+	my $pemchain = $s->_post($cert_url, undef, {accept => 'application/pem-certificate-chain'});
+	my @chain = _cert_split_chain($pemchain);
+	\@chain;
+}
+
+sub jws       { $_[0]->{'jws'}; }
+sub directory { $_[0]->{'directory'}->{$_[1]} or die "request name \"$_[1]\" not in directory"; }
+sub tos       { $_[0]->{'tos'}; }
+sub ct_parse  { (split(/;/, $_[0]))[0]; }
+
+sub pkey_set {
+	my ($s, $pkey) = @_;
+	my $jws = $s->{'jws'};
+	$jws->pkey_set($pkey);
+}
+
+sub kid_set {
+	my ($s, $kid) = @_;
+	my $jws = $s->{'jws'};
+	$jws->kid_set($kid);
+	$s->{'location'} = $kid;
+}
+
+sub _post {
+	my ($s, $url, $payload, $opts) = @_;
+	my $accept          = exists $opts->{'accept'} ? $opts->{'accept'} : 'application/json';
+	my $use_jwk         = $opts->{'use_jwk'} ? 1 : 0;
+	my $expected_status = exists $opts->{'expected_status'} ? $opts->{'expected_status'} : 200;
+
+	my $http = $s->{'http'};
+	my $jws  = $s->{'jws'};
+
+	my $headers = {
+		'Content-Type' => 'application/jose+json',
+		'Accept'       => $accept
+	};
+
+	my $nonce = $s->nonce_shift();
+	my $signed = $jws->sign($payload, { url => $url, nonce => $nonce }, $use_jwk);
+	my $r  = $http->post($url, { content => $signed, headers => $headers });
+	my $h  = $r->{'headers'};
+	my $ct = ct_parse($h->{'content-type'});
+
+	$s->nonce_push($r);
+	$s->_check_error($r);
 
 	if ( !defined $ct ) {
 		die "No Content-Type provided by server\n";
 	}
 
-	if ( $ct ne 'application/json' ) {
+	if ( $accept ne $ct ) {
 		my $printable = ACNE::Validator::PRINTABLE($ct);
-		die "Got Content-Type \"$printable\", not application/json as expected\n";
+		die "Got Content-Type \"$printable\", not \"$accept\" as expected\n";
 	}
 
-	my $json = decode_json($r->{'content'});
-	$json->{'status'};
+	my $ret = $ct eq 'application/json'
+	  ? decode_json($r->{'content'}) : $r->{'content'};
+
+	if (wantarray) {
+		return ($ret, $h);
+	}
+
+	return $ret;
 }
 
-sub new_cert {
-	my ($s, $csr) = @_;
+sub nonce_push {
+	my ($s, $req) = @_;
+	my $hdr = $req->{'headers'};
+	my $nonce = $hdr->{'replay-nonce'};
 
-	my $req = {
-	  'resource' => 'new-cert',
-	  'csr'      => encode_base64url($csr)
-	};
-
-	my $r = $s->_post($s->directory('new-cert'), $req);
-
-	if ( $r->{'status'} != 201 ) {
-		_check_error($r);
-		die "Error signing certificate: $r->{status} $r->{reason}\n";
+	if ( !defined $nonce ) {
+		return;
 	}
 
-	my @chain;
-	push @chain, _cert_format($r->{'content'});
+	push @{$s->{'nonces'}}, $nonce;
+	1;
+}
 
-	my $headers = $r->{'headers'};
-	my $loc   = $headers->{'location'};
-	my $links = _links($headers);
-	my $uri   = $links->{'up'};
-	$s->_cert_walk_link($uri, \@chain);
+sub nonce_shift {
+	my ($s) = @_;
+	my $nonces = $s->{nonces};
+	my $nonce = shift @{$nonces};
 
-	($loc, \@chain);
+	if ( defined $nonce ) {
+		return $nonce;
+	}
+
+	# gotta fetch some, then.
+	my $http = $s->{'http'};
+	my $url = $s->directory('newNonce');
+	my $req = $http->head($url);
+	if ( !$req->{'success'} ) {
+		die "failed to get nonce from $url";
+	}
+	$s->nonce_push($req);
+	$s->nonce_shift;
 }
 
 sub _check_error {
-	my ($r) = @_;
+	my ($s, $r) = @_;
+	my $api = $s->{'api'};
 
 	# Stuff we output to terminal, so be careful.
 	state $error_validator = ACNE::Validator->new(
-		'type'        => { validator => [\&ACNE::Validator::REGEX, qr/^urn:acme:error:(\w+)$/x] },
-		'detail'      => { validator => [\&ACNE::Validator::PRINTABLE] },
-		'status'      => { validator => [\&ACNE::Validator::INT] }
+		'type'        => { validator => [\&ACNE::Validator::REGEX, qr/^urn:ietf:params:acme:error:(\w+)$/x] },
+		'detail'      => { validator => [\&ACNE::Validator::PRINTABLE] }
 	);
 
 	if ( !$r->{'success'} ) {
 		my $h = $r->{'headers'};
-		my $t = $h->{'content-type'};
+		my $t = ct_parse($h->{'content-type'});
 
 		if ( defined $t && $t eq 'application/problem+json' ) {
 			my ($data, $err) = $error_validator->process(decode_json($r->{'content'}));
@@ -346,65 +370,16 @@ sub _check_error {
 	1;
 }
 
-sub _cert_walk_link {
-	my ($s, $uri, $chain) = @_;
-	my $max = 10;
+sub _cert_split_chain {
+	my ($pem) = @_;
+	my @chain;
+	my $re = qr/(-----BEGIN CERTIFICATE-----\s[a-zA-Z0-9\s\+\=\/]*-----END CERTIFICATE-----)/;
 
-	while ( $uri && @$chain < $max ) {
-		my ($cert, $next) = $s->_cert_get($uri);
-		$uri = $next;
-		push @$chain, _cert_format($cert);
+	while ( $pem =~ /$re/gs ) {
+		push @chain, $1;
 	}
 
-	die "Recursion limit reached at $uri\n"
-	  if $uri;
-
-	1;
-}
-
-sub _cert_get {
-	my ($s, $uri) = @_;
-	my $http = $s->{'http'};
-
-	my $r = $http->get($uri);
-
-	if ( $r->{'status'} != 200 ) {
-		_check_error($r);
-		die "_cert_get $r->{status} $r->{reason}";
-	}
-
-	my $links = _links($r->{'headers'});
-	my $next  = $links->{'up'};
-
-	return ($r->{'content'}, $next);
-}
-
-sub _cert_format {
-	sprintf(
-	  "-----BEGIN CERTIFICATE-----\n%s-----END CERTIFICATE-----",
-	  encode_base64($_[0])
-	);
-}
-
-sub _links {
-	my ($headers) = @_;
-	my $ret = {};
-
-	my $links = $headers->{'link'}
-	  or return $ret;
-
-	my $http_link_re = qr/^\<(.*)\>;rel=\"(.*)\"$/;
-
-	for my $entry ( ref $links eq 'ARRAY' ? @$links : $links ) {
-		if ( my ($uri, $rel) = $entry =~ $http_link_re ) {
-			$ret->{$rel} = $uri;
-			#say $link, ' ', $rel;
-		}
-		else {
-			die "bullshit link header \"$entry\"\n";
-		}
-	}
-	$ret;
+	return @chain;
 }
 
 1;

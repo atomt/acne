@@ -115,9 +115,8 @@ sub readPairs {
 
 sub touch {
 	my ($path, $time) = @_;
-	open my $fh, '>>', $path
-	  if ! -e $path;
-	utime $time, $time, $fh; # undef sets "now"
+	open my $fh, '>>', $path;
+#	utime $time, $time, $fh; # undef sets "now"
 	1;
 }
 

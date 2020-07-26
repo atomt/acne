@@ -17,23 +17,34 @@ use Digest::SHA qw(sha256);
 use Data::Dumper;
 
 sub new {
-	my ($class, %args) = @_;
-	my $pkey = $args{'pkey'} || croak "No pkey parameter";
+	my ($class) = @_;
 
+	bless {
+	  'pkey'   => undef,
+		'jwk'    => undef,
+		'kid'    => undef,
+		'alg'    => 'RS256'
+	} => $class;
+}
+
+sub pkey_set {
+	my ($s, $pkey) = @_;
+
+	# the jwk header is used if we dont have a kid
 	my $kparams = _key2hash($pkey);
-	my $header = {
-		'alg' => 'RS256',
-		'jwk' => {
+	my $jwk = {
 			'kty' => 'RSA',
 			'e'   => encode_base64url($kparams->{e}), # pub exponent
 			'n'   => encode_base64url($kparams->{n})  # pub key
-		}
 	};
 
-	bless {
-	  'pkey'   => $pkey,
-	  'header' => $header
-	} => $class;
+	$s->{'jwk'} = $jwk;
+	$s->{'pkey'} = $pkey;
+}
+
+sub kid_set {
+	my ($s, $kid) = @_;
+	$s->{'kid'} = $kid;
 }
 
 sub _key2hash {
@@ -57,11 +68,27 @@ sub _clone {
 }
 
 sub sign {
-	my ($s, $payload, $add_to_protected) = @_;
-	my $header = $s->{'header'};
-	my $pkey   = $s->{'pkey'};
+	my ($s, $payload, $add_to_protected, $use_jwk) = @_;
+	my $alg  = $s->{'alg'};
+	my $jwk  = $s->{'jwk'};
+	my $kid  = $s->{'kid'};
+	my $pkey = $s->{'pkey'};
 
-	my $payload64 = encode_base64url(encode_json($payload));
+	# POST-as-GET (prob should move json encode out to _post and _get callers..)
+	my $payload_json = "";
+	if ( defined $payload ) {
+		$payload_json = encode_json($payload);
+	}
+	
+	my $header = {'alg' => $alg };
+	if ( $use_jwk ) {
+		$header->{'jwk'} = $jwk;
+	}
+	else {
+		$header->{'kid'} = $kid;
+	}
+
+	my $payload64 = encode_base64url($payload_json);
 	my $header_clone = _clone($header);
 	my %protected = (%$header_clone, %$add_to_protected);
 	my $protected64 = encode_base64url(encode_json(\%protected));
@@ -70,7 +97,6 @@ sub sign {
 	my $signature = $pkey->sign($protected64 . '.' . $payload64);
 
 	my $packet = {
-		'header'    => $header,
 		'protected' => $protected64,
 		'payload'   => $payload64,
 		'signature' => encode_base64url($signature)
@@ -81,7 +107,7 @@ sub sign {
 
 sub thumbprint {
 	my ($s) = @_;
-	my $jwk = $s->{'header'}->{'jwk'};
+	my $jwk = $s->{'jwk'};
 	encode_base64url(sha256(JSON::PP->new->canonical(1)->encode($jwk)));
 }
 

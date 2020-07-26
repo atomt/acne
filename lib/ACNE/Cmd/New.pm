@@ -5,7 +5,6 @@ use warnings FATAL => 'all';
 use autodie;
 
 use ACNE::Common qw($config);
-use ACNE::Account;
 use ACNE::Cert;
 use ACNE::CA;
 use ACNE::Validator;
@@ -80,12 +79,13 @@ sub run {
 	my $ca_id      = $cert->getCAId;
 	my $run        = $cert->getRun;
 
-	my $account = ACNE::Account->new;
-	my $ca = ACNE::CA->new($ca_id, $account->keyInit);
+	my $ca = ACNE::CA->new($ca_id);
 
-	if ( !$account->registered($ca_id) ) {
+	if ( !$ca->registered_db ) {
 		exit 1;
 	}
+
+	$ca->initialize;
 
 	say "** Issuing certificate $id **";
 	say ' Authority ', $ca_id;
@@ -93,30 +93,17 @@ sub run {
 	say ' Key ', $cert->getKeyConf;
 	say ' Roll key ', $cert->getRollKey ? 'Yes' : 'No';
 	say ' Run ', $run ? join(' ', @$run) : 'none';
-
 	say '';
-	say 'Running pre-flight tests';
+
 	$cert->preflight;
-
-	say '';
-	say "Authorizing domains";
-	$cert->authorize($ca);
-
-	say '';
-	say "Issuing certificate";
+	$cert->order($ca);
 	$cert->issue($ca);
 	$cert->save;
-
-	say '';
-	say "Installing certificate";
 	$cert->activate;
 
-	say '';
 	say "Issued certificate expires ", scalar localtime($cert->getNotAfter), " GMT";
 	say "Automatic renew after ", scalar localtime($cert->getRenewAfter), " GMT";
 
-	say '';
-	say "** Running postinst hooks **";
 	ACNE::Cert::_runpostinst();
 }
 

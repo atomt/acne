@@ -6,7 +6,6 @@ use autodie;
 
 use ACNE::Common qw($config);
 use ACNE::CA;
-use ACNE::Account;
 use ACNE::Validator;
 
 use Getopt::Long;
@@ -14,19 +13,19 @@ use Getopt::Long;
 # Automatic mode: Register if new, update otherwise
 # acne account <ca>
 #
-# Force registration even if we thing we're registered
+# Force registration even if we think we're registered
 # acne account <ca> --register
 #
-# Accept CA ToS - basicly an update
-# acne account <ca> --accept-tos <url>
+# Accept CA ToS
+# acne account <ca> --accept-tos
 sub run {
     my $cmd   = shift @ARGV;
 
     my ($register, $accept_tos, $arg_help);
     GetOptions(
-      'register'     => \$register,
-      'accept-tos=s' => \$accept_tos,
-      'help'         => \$arg_help
+      'register'   => \$register,
+      'accept-tos' => \$accept_tos,
+      'help'       => \$arg_help
 	) or usage_err();
 
     my $ca_id = shift @ARGV;
@@ -50,21 +49,65 @@ sub run {
         $ca_id = ACNE::Validator::WORD($ca_id);
     }
 
-    my $account = ACNE::Account->new;
-    my $ca      = ACNE::CA->new($ca_id, $account->keyInit);
+    say "Selected Certificate Authority $ca_id.";
 
-    # Register if not registered or --register set
-    if ( !$account->_registered($ca_id) or $register ) {
-        $account->ca_register($ca, $ca_id);
+    my $ca = ACNE::CA->new($ca_id);
 
-        # Send an update with ToS if requested
-        if ( $accept_tos ) {
-            $account->ca_update($ca, $ca_id, $accept_tos);
+    # Load local account information
+    if ( !$ca->account_exists_db ) {
+        say 'Generating new account key.';
+        $ca->create_db;
+    }
+    $ca->initialize;
+
+    # Config
+    my $aconf = $config->{'account'}
+	  or die "Account has no valid configuration\n";
+
+	my @contact;
+	push @contact, 'mailto:' . $aconf->{'email'} if defined $aconf->{'email'};
+	push @contact, 'tel:'    . $aconf->{'tel'}   if defined $aconf->{'tel'};
+
+    # Register
+    if ( !$ca->registered_db ) {
+        my $ca_tos = $ca->tos;
+
+        if ( $ca_tos && !$accept_tos ) {
+            say '';
+		    say 'This Certificate Authority has a Terms of Service that you need to agree';
+            say 'to before you can use it. This document can be viewed here:';
+            say '';
+            say $ca_tos;
+		    say '';
+		    say "Approve it using this command: `acne account $ca_id --accept-tos`";
+		    say 'before issuing any certificates using this authority';
+		    say '';
+
+            exit 1;
         }
+
+        my %req;
+        $req{contact} = \@contact if @contact > 0;
+
+        if ( $accept_tos ) {
+            say "Accepting the following Terms of service:";
+            say $ca_tos;
+            say '';
+            $req{termsOfServiceAgreed} = 1;
+        }
+        $ca->newAccount(%req);
+        $ca->registered_db_set();
+
+        say 'A new account was created at the Certificate Authority.';
     }
     # Update
     else {
-        $account->ca_update($ca, $ca_id, $accept_tos);
+        my %req;
+        $req{contact} = \@contact if @contact > 0;
+
+        # Push update
+        $ca->updateAccount(%req);
+        say "Account updated at the Certificate Authority.";
     }
 
     1;
