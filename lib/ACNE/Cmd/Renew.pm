@@ -106,7 +106,6 @@ sub run {
 	my @checked;
 	for my $cert ( @loaded ) {
 		my $id = $cert->getId;
-		say $id;
 		eval {
 			$cert->preflight;
 			push @checked, $cert;
