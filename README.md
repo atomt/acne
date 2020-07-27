@@ -182,6 +182,6 @@ Set the default parameters used when creating a new certificate. With the except
     defaults.key        rsa:3072
     defaults.run        none # space delimeted sets of hook scripts
 
-Locally configure alternative Certificate Authorities exposing a ACME API. letsencrypt and letsencrypt-staging comes pre-defined.
+Locally configure alternative Certificate Authorities exposing a ACME API. letsencrypt, letsencrypt-staging, buypass and buypass-staging comes pre-defined.
 
-    ca.internal.directory https://acme-v1.api.example.com/directory
+    ca.internal.directory https://acme-v2.api.example.com/directory
