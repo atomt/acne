@@ -327,7 +327,13 @@ sub _post {
 	);
 
 	my ($r, $h, $ct);
-	for ( my $try = 1; $try <= 5; $try++ ) {
+	my $MAX_TRIES = 5;
+	for ( my $try = 1; $try <= $MAX_TRIES; $try++ ) {
+		if ( $try > 1 ) {
+			say "Retrying the request (try $try of $MAX_TRIES)";
+			sleep 1;
+		}
+
 		my $signed = $jws->sign($payload, { url => $url, nonce => $s->nonce_shift() }, $use_jwk);
 		$r = $http->post($url, { content => $signed, headers => $headers });
 		$s->nonce_push($r);
@@ -344,9 +350,9 @@ sub _post {
 				die "Authority returned an error but the error is bogus!\n", @$verr;
 			}
 
-			if ( $problemdata->{'type'} eq 'badNonce' ) {
-				say "Authority rejected our nonce - retrying the request (try $try of 5)";
-				sleep 1;
+			# Per RFC we should re-try on badNonce (and only badNonce)
+			if ( $problemdata->{'type'} eq 'badNonce' && $try < $MAX_TRIES ) {
+				say "Authority rejected our nonce";
 				next;
 			}
 
