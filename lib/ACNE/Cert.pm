@@ -361,12 +361,12 @@ sub issue {
 		croak "No dns names was successfully authorized";
 	}
 
-	say "Making Certificate Singing Request";
+	say "Submitting Certificate Singing Request";
 	my $csr = $s->csrGenerate(@authorized);
+	$ca->finalize($order, $csr);
 
-	say "Requesting Certificate";
-	my $chain = $ca->new_cert($csr, $order);
-
+	say "Polling for certificate";
+	my $chain = $ca->certificate($order);
 	$s->{'chain'} = $chain;
 
 	my ($notbefore, $notafter) = ACNE::OpenSSL::Date::x509_dates(@$chain[0]);

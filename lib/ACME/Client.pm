@@ -224,27 +224,41 @@ sub challengePoll {
 	1;
 }
 
-sub new_cert {
-	my ($s, $csr, $order) = @_;
-	my $finalize_url = $order->{'finalize'};
-	my $order_url = $order->{'location'};
+sub finalize {
+	my ($s, $order, $csr) = @_;
+	my $url = $order->{'finalize'};
 
 	# Send CSR to finilizaton url
 	my $req = {
 	  'csr'      => encode_base64url($csr)
 	};
 
-	$s->_post($finalize_url, $req);
+	$s->_post($url, $req);
+}
 
-	# Poll the order url to see if there is a certificate to fetch
-	my $order_polled = $s->_post($order_url, undef); # POST-as-GET
-	my $cert_url = $order_polled->{'certificate'};
-	if ( !$cert_url ) {
-		die "No certificate!";
+sub certificate {
+	my ($s, $order) = @_;
+	my $url = $order->{'location'};
+
+	# Wait for ready
+	my $cert;
+	for ( my $try = 0; $try < 10; $try++ ) {
+		my $polled = $s->_post($url, undef); # POST-as-GET
+		$cert = $polled->{'certificate'};
+
+		if ( !$cert ) {
+			sleep 2;
+		}
+		else {
+			last;
+		}
 	}
 
+	die "Gave up waiting for certificate!"
+	  if !$cert;
+
 	# POST-as-GET
-	my $pemchain = $s->_post($cert_url, undef, {accept => 'application/pem-certificate-chain'});
+	my $pemchain = $s->_post($cert, undef, {accept => 'application/pem-certificate-chain'});
 	my @chain = _cert_split_chain($pemchain);
 	\@chain;
 }
