@@ -222,7 +222,7 @@ sub challengePoll {
 		}
 	}
 
-	die "Challenge timed out!"
+	die "Waiting for challenge timed out!"
 	  if $status ne 'valid';
 
 	1;
@@ -258,7 +258,7 @@ sub certificate {
 		}
 	}
 
-	die "Gave up waiting for certificate!"
+	die "Waiting for certificate timed out!"
 	  if !$cert;
 
 	# POST-as-GET
