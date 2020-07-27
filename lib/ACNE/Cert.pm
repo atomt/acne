@@ -13,7 +13,7 @@ use ACNE::Crypto::ECDSA;
 use ACNE::OpenSSL::Date;
 
 use HTTP::Tiny;
-use File::Path qw(make_path);
+use File::Path qw(make_path remove_tree);
 use File::Spec::Functions qw(catdir catfile);
 use IPC::Open3;
 use MIME::Base64 qw(encode_base64url);
@@ -222,6 +222,19 @@ sub activate {
 				'key_ver'       => catfile($livedir, 'key.pem')
 			}
 		);
+	}
+
+	# Clear out old versions, keep the three latest.
+	my $versionsdir = catdir(@$c_store, 'live', '.versions', $id);
+	my @versions = sort { $a->{'mtime'} <=> $b->{'mtime'} }
+	  grep { $_->{'name'} !~ /^\./ }
+	  ACNE::Util::File::statDirectoryContents($versionsdir);
+	pop @versions; pop @versions; pop @versions;
+	for my $v ( @versions ) {
+		my $name = $v->{'name'};
+		my $fp = catdir($versionsdir, $name);
+		say "Removing old version $name";
+		remove_tree($fp, {verbose => 0, safe => 1});
 	}
 
 	1;

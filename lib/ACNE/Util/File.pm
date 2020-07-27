@@ -6,6 +6,7 @@ use autodie;
 use Carp qw(croak carp);
 
 use JSON::PP;
+use File::Spec::Functions qw(catfile);
 
 my $re_comments   = qr!#.*$!;
 my $re_whitespace = qr!(^\s+|\s+$)!;
@@ -118,6 +119,20 @@ sub touch {
 	open my $fh, '>>', $path;
 #	utime $time, $time, $fh; # undef sets "now"
 	1;
+}
+
+sub statDirectoryContents {
+	my ($dir) = @_;
+	my @ret;
+	opendir(my $dh, $dir);
+	while ( my $entry = readdir $dh ) {
+		my $fp = catfile($dir, $entry);
+		my @stat = stat($fp);
+		warn "Could not stat() $fp: $!" if @stat == 0;
+		push @ret, { 'name' => $entry, 'mtime' => $stat[9] };
+	}
+
+	return @ret;
 }
 
 1;
