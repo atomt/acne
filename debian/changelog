@@ -1,3 +1,15 @@
+acne (6-1) unstable; urgency=medium
+
+  * Bump default renew-left from 14 to 25 days
+
+  * Certificates now defaults to ECDSA
+
+  * Fetching certificate is now polled, in case CA works async.
+
+  * Re-try for challenges are now bounded.
+
+ -- Andre Tomt <andre@tomt.net>  Mon, 27 Jul 2020 06:27:15 +0200
+
 acne (5-1) unstable; urgency=medium
 
   * Support for ACMEv2. v1 has been removed.
