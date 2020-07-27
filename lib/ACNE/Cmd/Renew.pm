@@ -65,8 +65,7 @@ sub run {
 	# Load all certs and their CAs, and run pre-flight to catch errors early
 	if ( !$arg_cron ) {
 		if ( @selected ) {
-			say 'Certificates selected for renewal';
-			say ' ', $_ for @selected;
+			say 'Certificates selected for renewal: ' . join('', @selected);
 		}
 		else {
 			say 'No certificates selected';

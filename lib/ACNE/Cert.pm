@@ -232,9 +232,10 @@ sub preflight {
 	my @dns = @{$s->{'conf'}->{'dns'}};
 	my @tested_ok;
 
+	say "Pre-flight testing ", $s->getId;
 	my $tester = $s->domainAuthTestSetup;
 	for my $domain ( @dns ) {
-		say "Running pre-flight test for $domain";
+		say "Running test for $domain";
 		eval { $tester->test($domain) };
 		if ( $@ ) {
 			say STDERR "Pre-flight test for $domain failed: ", $@;
