@@ -206,9 +206,10 @@ sub challengePoll {
 	my ($s, $url) = @_;
 
 	# Wait for ready
-	while ( 1 ) {
+	my $status;
+	for ( my $try = 0; $try < 10; $try++ ) {
 		my $ch = $s->_post($url, undef); # POST-as-GET
-		my $status = $ch->{'status'};
+		$status = $ch->{'status'};
 
 		if ( $status eq 'pending' ) {
 			sleep 2;
@@ -220,6 +221,9 @@ sub challengePoll {
 			die "Challenge did not pass!\n";
 		}
 	}
+
+	die "Challenge timed out!"
+	  if $status ne 'valid';
 
 	1;
 }
