@@ -30,7 +30,7 @@ my $system_validator = ACNE::Validator->new(
 
 my $defaults_validator = ACNE::Validator->new(
 	'renew-left' => {
-		default   => 10,
+		default   => 25,
 		validator => [\&ACNE::Validator::INT, 1, 356]
 	},
 	'ca'         => {
@@ -38,7 +38,7 @@ my $defaults_validator = ACNE::Validator->new(
 		validator => [\&ACNE::Validator::WORD]
 	},
 	'key'        => {
-		default   => 'rsa',
+		default   => 'ecdsa',
 		validator => [\&ACNE::Validator::PRINTABLE],
 	},
 	'roll-key'   => {

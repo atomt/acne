@@ -13,7 +13,7 @@ use ACNE::Crypto::ECDSA;
 use ACNE::OpenSSL::Date;
 
 use HTTP::Tiny;
-use File::Path qw(make_path);
+use File::Path qw(make_path remove_tree);
 use File::Spec::Functions qw(catdir catfile);
 use IPC::Open3;
 use MIME::Base64 qw(encode_base64url);
@@ -224,6 +224,19 @@ sub activate {
 		);
 	}
 
+	# Clear out old versions, keep the three latest.
+	my $versionsdir = catdir(@$c_store, 'live', '.versions', $id);
+	my @versions = sort { $a->{'mtime'} <=> $b->{'mtime'} }
+	  grep { $_->{'name'} !~ /^\./ }
+	  ACNE::Util::File::statDirectoryContents($versionsdir);
+	pop @versions; pop @versions; pop @versions;
+	for my $v ( @versions ) {
+		my $name = $v->{'name'};
+		my $fp = catdir($versionsdir, $name);
+		say "Removing old version $name";
+		remove_tree($fp, {verbose => 0, safe => 1});
+	}
+
 	1;
 }
 
@@ -232,9 +245,10 @@ sub preflight {
 	my @dns = @{$s->{'conf'}->{'dns'}};
 	my @tested_ok;
 
+	say "Pre-flight testing ", $s->getId;
 	my $tester = $s->domainAuthTestSetup;
 	for my $domain ( @dns ) {
-		say "Running pre-flight test for $domain";
+		say "Running test for $domain";
 		eval { $tester->test($domain) };
 		if ( $@ ) {
 			say STDERR "Pre-flight test for $domain failed: ", $@;
@@ -347,12 +361,12 @@ sub issue {
 		croak "No dns names was successfully authorized";
 	}
 
-	say "Making Certificate Singing Request";
+	say "Submitting Certificate Singing Request";
 	my $csr = $s->csrGenerate(@authorized);
+	$ca->finalize($order, $csr);
 
-	say "Requesting Certificate";
-	my $chain = $ca->new_cert($csr, $order);
-
+	say "Polling for certificate";
+	my $chain = $ca->certificate($order);
 	$s->{'chain'} = $chain;
 
 	my ($notbefore, $notafter) = ACNE::OpenSSL::Date::x509_dates(@$chain[0]);
