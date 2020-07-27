@@ -65,6 +65,21 @@ sub initialize {
 	# Load directory, containing uris for each supported api request
 	my $r = $http->get($directory, $options);
 	$s->nonce_push($r);
+	my $h = $r->{'headers'};
+	my $ct = ct_parse($h->{'content-type'});
+
+	if ( !defined $ct ) {
+		die "No Content-Type provided by server\n";
+	}
+
+	if ( $ct ne 'application/json' ) {
+		die "The ACME directory has incorrect content-type\n";
+	}
+
+	if ( !$r->{'success'} ) {
+		die 'Authority returned generic HTTP error: ',
+		  $r->{'status'}, ' ', $r->{'reason'}, "\n";
+	}
 
 	my $directory_raw = decode_json($r->{'content'});
 	if ( !exists $directory_raw->{'newOrder'} ) {
@@ -270,7 +285,14 @@ sub certificate {
 sub jws       { $_[0]->{'jws'}; }
 sub directory { $_[0]->{'directory'}->{$_[1]} or die "request name \"$_[1]\" not in directory"; }
 sub tos       { $_[0]->{'tos'}; }
-sub ct_parse  { (split(/;/, $_[0]))[0]; }
+
+sub ct_parse {
+	if ( !$_[0] ) {
+		return;
+	}
+
+	(split(/;/, $_[0]))[0];
+}
 
 sub pkey_set {
 	my ($s, $pkey) = @_;
@@ -299,14 +321,42 @@ sub _post {
 		'Accept'       => $accept
 	};
 
-	my $nonce = $s->nonce_shift();
-	my $signed = $jws->sign($payload, { url => $url, nonce => $nonce }, $use_jwk);
-	my $r  = $http->post($url, { content => $signed, headers => $headers });
-	my $h  = $r->{'headers'};
-	my $ct = ct_parse($h->{'content-type'});
+	state $error_validator = ACNE::Validator->new(
+		'type'        => { validator => [\&ACNE::Validator::REGEX, qr/^urn:ietf:params:acme:error:(\w+)$/x] },
+		'detail'      => { validator => [\&ACNE::Validator::PRINTABLE] }
+	);
 
-	$s->nonce_push($r);
-	$s->_check_error($r);
+	my ($r, $h, $ct);
+	for ( my $try = 1; $try <= 5; $try++ ) {
+		my $signed = $jws->sign($payload, { url => $url, nonce => $s->nonce_shift() }, $use_jwk);
+		$r = $http->post($url, { content => $signed, headers => $headers });
+		$s->nonce_push($r);
+		$h = $r->{'headers'};
+		$ct = ct_parse($h->{'content-type'});
+
+		if ( $r->{'success'} ) {
+			last;
+		}
+
+		if ( defined $ct && $ct eq 'application/problem+json' ) {
+			my ($problemdata, $verr) = $error_validator->process(decode_json($r->{'content'}));
+			if ( defined $verr ) {
+				die "Authority returned an error but the error is bogus!\n", @$verr;
+			}
+
+			if ( $problemdata->{'type'} eq 'badNonce' ) {
+				say "Authority rejected our nonce - retrying the request (try $try of 5)";
+				sleep 1;
+				next;
+			}
+
+			die 'ACME host returned error: ',
+			  $problemdata->{'detail'}, ' (', $problemdata->{'type'}, ")\n";
+		}
+
+		die 'Authority returned generic HTTP error: ',
+		  $r->{'status'}, ' ', $r->{'reason'}, "\n";
+	}
 
 	if ( !defined $ct ) {
 		die "No Content-Type provided by server\n";
@@ -358,34 +408,6 @@ sub nonce_shift {
 	}
 	$s->nonce_push($req);
 	$s->nonce_shift;
-}
-
-sub _check_error {
-	my ($s, $r) = @_;
-	my $api = $s->{'api'};
-
-	# Stuff we output to terminal, so be careful.
-	state $error_validator = ACNE::Validator->new(
-		'type'        => { validator => [\&ACNE::Validator::REGEX, qr/^urn:ietf:params:acme:error:(\w+)$/x] },
-		'detail'      => { validator => [\&ACNE::Validator::PRINTABLE] }
-	);
-
-	if ( !$r->{'success'} ) {
-		my $h = $r->{'headers'};
-		my $t = ct_parse($h->{'content-type'});
-
-		if ( defined $t && $t eq 'application/problem+json' ) {
-			my ($data, $err) = $error_validator->process(decode_json($r->{'content'}));
-			if ( defined $err ) {
-				die "Authority returned an error but the error is bogus!\n", @$err;
-			}
-			die 'ACME host returned error: ', $data->{'detail'}, ' (', $data->{'type'}, ")\n";
-		}
-
-		die 'ACME host returned HTTP error: ', $r->{'status'}, ' ', $r->{'reason'}, "\n";
-	}
-
-	1;
 }
 
 sub _cert_split_chain {
