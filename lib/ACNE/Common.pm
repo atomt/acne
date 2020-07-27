@@ -38,7 +38,7 @@ my $defaults_validator = ACNE::Validator->new(
 		validator => [\&ACNE::Validator::WORD]
 	},
 	'key'        => {
-		default   => 'rsa',
+		default   => 'ecdsa',
 		validator => [\&ACNE::Validator::PRINTABLE],
 	},
 	'roll-key'   => {
