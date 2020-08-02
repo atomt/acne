@@ -17,6 +17,8 @@ use constant newAccount_bools => qw(
 	onlyReturnExisting
 );
 
+my $HTTP_RETRY_AFTER_MAX = 30;
+
 # Lock directory to HTTPS
 my $https_uri = { validator => [\&ACNE::Validator::REGEX, qr!^(https://.*)$!x] };
 my $httpx_uri = { validator => [\&ACNE::Validator::REGEX, qr!^(https?://.*)$!x] };
@@ -222,12 +224,23 @@ sub challengePoll {
 
 	# Wait for ready
 	my $status;
-	for ( my $try = 0; $try < 10; $try++ ) {
-		my $ch = $s->_post($url, undef); # POST-as-GET
+	my $wait = 1;
+	for ( my $try = 1; $try <= 10; $try++ ) {
+		if ( $try > 1 ) {
+			say "next check in $wait seconds";
+			sleep $wait;
+		}
+		
+		my ($ch, $h) = $s->_post($url, undef); # POST-as-GET
+		$wait = http_retry_parse($h) || $wait * 2;
 		$status = $ch->{'status'};
 
-		if ( $status eq 'pending' ) {
-			sleep 2;
+		if ( $wait > $HTTP_RETRY_AFTER_MAX ) {
+			$wait = $HTTP_RETRY_AFTER_MAX;
+		}
+
+		if ( $status eq 'pending' || $status eq 'processing' ) {
+			next;
 		}
 		elsif ( $status eq 'valid' ) {
 			last;
@@ -261,12 +274,23 @@ sub certificate {
 
 	# Wait for ready
 	my $cert;
-	for ( my $try = 0; $try < 10; $try++ ) {
-		my $polled = $s->_post($url, undef); # POST-as-GET
+	my $wait = 1;
+	for ( my $try = 1; $try <= 10; $try++ ) {
+		if ( $try > 1 ) {
+			say "next check in $wait seconds";
+			sleep $wait;
+		}
+
+		my ($polled, $h) = $s->_post($url, undef); # POST-as-GET
+		$wait = http_retry_parse($h) || $wait * 2;
 		$cert = $polled->{'certificate'};
 
+		if ( $wait > $HTTP_RETRY_AFTER_MAX ) {
+			$wait = $HTTP_RETRY_AFTER_MAX;
+		}
+
 		if ( !$cert ) {
-			sleep 2;
+			next;
 		}
 		else {
 			last;
@@ -292,6 +316,24 @@ sub ct_parse {
 	}
 
 	(split(/;/, $_[0]))[0];
+}
+
+# Parse HTTP Retry-After. Servers can provide either time to wait in
+# seconds, or a HTTP date. For now, only support the "re-try in X seconds"
+# variant.
+sub http_retry_parse {
+	my ($h) = @_;
+	my $retry = $h->{'retry-after'};
+
+	if ( !defined $retry ) {
+		return;
+	}
+
+	if ( $retry =~ /^(\d+)$/ ) {
+		return int($1);
+	}
+
+	return;
 }
 
 sub pkey_set {
@@ -326,6 +368,16 @@ sub _post {
 		'detail'      => { validator => [\&ACNE::Validator::PRINTABLE] }
 	);
 
+	# POST-as-GET when undefined
+	my $payload_json = "";
+	if ( defined $payload ) {
+		# Pretty-print with stable ordering for debugability.
+		$payload_json = JSON::PP->new->canonical(1)->pretty(1)->encode($payload);
+		# Pretty-printing adds a newline at the end and breaks empty {}
+		# requests to some servers.
+		chomp($payload_json);
+	}
+
 	my ($r, $h, $ct);
 	my $MAX_TRIES = 5;
 	for ( my $try = 1; $try <= $MAX_TRIES; $try++ ) {
@@ -334,7 +386,7 @@ sub _post {
 			sleep 1;
 		}
 
-		my $signed = $jws->sign($payload, { url => $url, nonce => $s->nonce_shift() }, $use_jwk);
+		my $signed = $jws->sign($payload_json, { url => $url, nonce => $s->nonce_shift() }, $use_jwk);
 		$r = $http->post($url, { content => $signed, headers => $headers });
 		$s->nonce_push($r);
 		$h = $r->{'headers'};

@@ -74,12 +74,6 @@ sub sign {
 	my $kid  = $s->{'kid'};
 	my $pkey = $s->{'pkey'};
 
-	# POST-as-GET (prob should move json encode out to _post and _get callers..)
-	my $payload_json = "";
-	if ( defined $payload ) {
-		$payload_json = encode_json($payload);
-	}
-	
 	my $header = {'alg' => $alg };
 	if ( $use_jwk ) {
 		$header->{'jwk'} = $jwk;
@@ -88,7 +82,7 @@ sub sign {
 		$header->{'kid'} = $kid;
 	}
 
-	my $payload64 = encode_base64url($payload_json);
+	my $payload64 = encode_base64url($payload);
 	my $header_clone = _clone($header);
 	my %protected = (%$header_clone, %$add_to_protected);
 	my $protected64 = encode_base64url(encode_json(\%protected));
