@@ -1,3 +1,11 @@
+acne (7-1) unstable; urgency=medium
+
+  * Fix issue when creating the initial db
+
+  * Some improvements to re-try
+
+ -- Andre Tomt <andre@tomt.net>  Thu, 04 Feb 2021 23:08:09 +0100
+
 acne (6-1) unstable; urgency=medium
 
   * Bump default renew-left from 14 to 25 days
