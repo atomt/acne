@@ -5,7 +5,6 @@ etc/config.sample
 lib/ACME/Client.pm
 lib/ACME/Client/JWS.pm
 lib/ACNE.pm
-lib/ACNE/Account.pm
 lib/ACNE/CA.pm
 lib/ACNE/Cert.pm
 lib/ACNE/Cmd/Account.pm

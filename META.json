@@ -3,33 +3,33 @@
    "author" : [
       "Andre Tomt <andre@tomt.net>"
    ],
-   "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.4218",
+   "dynamic_config" : 0,
+   "generated_by" : "Module::Build version 0.4231",
    "license" : [
       "gpl_2"
    ],
    "meta-spec" : {
       "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
-      "version" : "2"
+      "version" : 2
    },
    "name" : "Acne",
    "prereqs" : {
       "build" : {
          "requires" : {
-            "Test::More" : "0"
+            "Test::More" : 0
          }
       },
       "configure" : {
          "requires" : {
-            "Module::Build" : "0"
+            "Module::Build" : 0
          }
       },
       "runtime" : {
          "requires" : {
-            "HTTP::Tiny" : "0.012",
-            "IO::Socket::SSL" : "1.56",
-            "JSON::PP" : "2.27105",
-            "Net::SSLeay" : "1.49"
+            "HTTP::Tiny" : 0.012,
+            "IO::Socket::SSL" : 1.56,
+            "JSON::PP" : 2.27105,
+            "Net::SSLeay" : 1.49
          }
       }
    },
@@ -43,9 +43,6 @@
       "ACNE" : {
          "file" : "lib/ACNE.pm",
          "version" : "0.01"
-      },
-      "ACNE::Account" : {
-         "file" : "lib/ACNE/Account.pm"
       },
       "ACNE::CA" : {
          "file" : "lib/ACNE/CA.pm"
@@ -104,5 +101,5 @@
    },
    "release_status" : "unstable",
    "version" : "0.01",
-   "x_serialization_backend" : "JSON::PP version 2.27400"
+   "x_serialization_backend" : "JSON::PP version 4.02"
 }

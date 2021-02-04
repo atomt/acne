@@ -93,6 +93,11 @@ sub upgradeaccounts_v2 {
 	my ($accountdb_fp) = @_;
 	my $default_fp = catdir($accountdb_fp, 'default');
 
+	if ( ! -e $default_fp ) {
+		ACNE::Util::File::writeStr(2, catfile($accountdb_fp, 'dbver'));
+		return 1;
+	}
+
 	opendir(my $default_dh, $default_fp);
 	while ( my $direntry = readdir $default_dh ) {
 		next if $direntry !~ /^location\.(.+)/;

@@ -6,8 +6,8 @@ build_requires:
   Test::More: '0'
 configure_requires:
   Module::Build: '0'
-dynamic_config: 1
-generated_by: 'Module::Build version 0.4218, CPAN::Meta::Converter version 2.150005'
+dynamic_config: 0
+generated_by: 'Module::Build version 0.4231, CPAN::Meta::Converter version 2.150010'
 license: gpl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -21,8 +21,6 @@ provides:
   ACNE:
     file: lib/ACNE.pm
     version: '0.01'
-  ACNE::Account:
-    file: lib/ACNE/Account.pm
   ACNE::CA:
     file: lib/ACNE/CA.pm
   ACNE::Cert:

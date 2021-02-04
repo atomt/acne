@@ -17,6 +17,8 @@ use constant newAccount_bools => qw(
 	onlyReturnExisting
 );
 
+my $HTTP_RETRY_AFTER_MAX = 30;
+
 # Lock directory to HTTPS
 my $https_uri = { validator => [\&ACNE::Validator::REGEX, qr!^(https://.*)$!x] };
 my $httpx_uri = { validator => [\&ACNE::Validator::REGEX, qr!^(https?://.*)$!x] };
@@ -65,6 +67,21 @@ sub initialize {
 	# Load directory, containing uris for each supported api request
 	my $r = $http->get($directory, $options);
 	$s->nonce_push($r);
+	my $h = $r->{'headers'};
+	my $ct = ct_parse($h->{'content-type'});
+
+	if ( !defined $ct ) {
+		die "No Content-Type provided by server\n";
+	}
+
+	if ( $ct ne 'application/json' ) {
+		die "The ACME directory has incorrect content-type\n";
+	}
+
+	if ( !$r->{'success'} ) {
+		die 'Authority returned generic HTTP error: ',
+		  $r->{'status'}, ' ', $r->{'reason'}, "\n";
+	}
 
 	my $directory_raw = decode_json($r->{'content'});
 	if ( !exists $directory_raw->{'newOrder'} ) {
@@ -207,12 +224,23 @@ sub challengePoll {
 
 	# Wait for ready
 	my $status;
-	for ( my $try = 0; $try < 10; $try++ ) {
-		my $ch = $s->_post($url, undef); # POST-as-GET
+	my $wait = 1;
+	for ( my $try = 1; $try <= 10; $try++ ) {
+		if ( $try > 1 ) {
+			say "next check in $wait seconds";
+			sleep $wait;
+		}
+		
+		my ($ch, $h) = $s->_post($url, undef); # POST-as-GET
+		$wait = http_retry_parse($h) || $wait * 2;
 		$status = $ch->{'status'};
 
-		if ( $status eq 'pending' ) {
-			sleep 2;
+		if ( $wait > $HTTP_RETRY_AFTER_MAX ) {
+			$wait = $HTTP_RETRY_AFTER_MAX;
+		}
+
+		if ( $status eq 'pending' || $status eq 'processing' ) {
+			next;
 		}
 		elsif ( $status eq 'valid' ) {
 			last;
@@ -246,12 +274,23 @@ sub certificate {
 
 	# Wait for ready
 	my $cert;
-	for ( my $try = 0; $try < 10; $try++ ) {
-		my $polled = $s->_post($url, undef); # POST-as-GET
+	my $wait = 1;
+	for ( my $try = 1; $try <= 10; $try++ ) {
+		if ( $try > 1 ) {
+			say "next check in $wait seconds";
+			sleep $wait;
+		}
+
+		my ($polled, $h) = $s->_post($url, undef); # POST-as-GET
+		$wait = http_retry_parse($h) || $wait * 2;
 		$cert = $polled->{'certificate'};
 
+		if ( $wait > $HTTP_RETRY_AFTER_MAX ) {
+			$wait = $HTTP_RETRY_AFTER_MAX;
+		}
+
 		if ( !$cert ) {
-			sleep 2;
+			next;
 		}
 		else {
 			last;
@@ -270,7 +309,32 @@ sub certificate {
 sub jws       { $_[0]->{'jws'}; }
 sub directory { $_[0]->{'directory'}->{$_[1]} or die "request name \"$_[1]\" not in directory"; }
 sub tos       { $_[0]->{'tos'}; }
-sub ct_parse  { (split(/;/, $_[0]))[0]; }
+
+sub ct_parse {
+	if ( !$_[0] ) {
+		return;
+	}
+
+	(split(/;/, $_[0]))[0];
+}
+
+# Parse HTTP Retry-After. Servers can provide either time to wait in
+# seconds, or a HTTP date. For now, only support the "re-try in X seconds"
+# variant.
+sub http_retry_parse {
+	my ($h) = @_;
+	my $retry = $h->{'retry-after'};
+
+	if ( !defined $retry ) {
+		return;
+	}
+
+	if ( $retry =~ /^(\d+)$/ ) {
+		return int($1);
+	}
+
+	return;
+}
 
 sub pkey_set {
 	my ($s, $pkey) = @_;
@@ -299,14 +363,58 @@ sub _post {
 		'Accept'       => $accept
 	};
 
-	my $nonce = $s->nonce_shift();
-	my $signed = $jws->sign($payload, { url => $url, nonce => $nonce }, $use_jwk);
-	my $r  = $http->post($url, { content => $signed, headers => $headers });
-	my $h  = $r->{'headers'};
-	my $ct = ct_parse($h->{'content-type'});
+	state $error_validator = ACNE::Validator->new(
+		'type'        => { validator => [\&ACNE::Validator::REGEX, qr/^urn:ietf:params:acme:error:(\w+)$/x] },
+		'detail'      => { validator => [\&ACNE::Validator::PRINTABLE] }
+	);
 
-	$s->nonce_push($r);
-	$s->_check_error($r);
+	# POST-as-GET when undefined
+	my $payload_json = "";
+	if ( defined $payload ) {
+		# Pretty-print with stable ordering for debugability.
+		$payload_json = JSON::PP->new->canonical(1)->pretty(1)->encode($payload);
+		# Pretty-printing adds a newline at the end and breaks empty {}
+		# requests to some servers.
+		chomp($payload_json);
+	}
+
+	my ($r, $h, $ct);
+	my $MAX_TRIES = 5;
+	for ( my $try = 1; $try <= $MAX_TRIES; $try++ ) {
+		if ( $try > 1 ) {
+			say "Retrying the request (try $try of $MAX_TRIES)";
+			sleep 1;
+		}
+
+		my $signed = $jws->sign($payload_json, { url => $url, nonce => $s->nonce_shift() }, $use_jwk);
+		$r = $http->post($url, { content => $signed, headers => $headers });
+		$s->nonce_push($r);
+		$h = $r->{'headers'};
+		$ct = ct_parse($h->{'content-type'});
+
+		if ( $r->{'success'} ) {
+			last;
+		}
+
+		if ( defined $ct && $ct eq 'application/problem+json' ) {
+			my ($problemdata, $verr) = $error_validator->process(decode_json($r->{'content'}));
+			if ( defined $verr ) {
+				die "Authority returned an error but the error is bogus!\n", @$verr;
+			}
+
+			# Per RFC we should re-try on badNonce (and only badNonce)
+			if ( $problemdata->{'type'} eq 'badNonce' && $try < $MAX_TRIES ) {
+				say "Authority rejected our nonce";
+				next;
+			}
+
+			die 'ACME host returned error: ',
+			  $problemdata->{'detail'}, ' (', $problemdata->{'type'}, ")\n";
+		}
+
+		die 'Authority returned generic HTTP error: ',
+		  $r->{'status'}, ' ', $r->{'reason'}, "\n";
+	}
 
 	if ( !defined $ct ) {
 		die "No Content-Type provided by server\n";
@@ -358,34 +466,6 @@ sub nonce_shift {
 	}
 	$s->nonce_push($req);
 	$s->nonce_shift;
-}
-
-sub _check_error {
-	my ($s, $r) = @_;
-	my $api = $s->{'api'};
-
-	# Stuff we output to terminal, so be careful.
-	state $error_validator = ACNE::Validator->new(
-		'type'        => { validator => [\&ACNE::Validator::REGEX, qr/^urn:ietf:params:acme:error:(\w+)$/x] },
-		'detail'      => { validator => [\&ACNE::Validator::PRINTABLE] }
-	);
-
-	if ( !$r->{'success'} ) {
-		my $h = $r->{'headers'};
-		my $t = ct_parse($h->{'content-type'});
-
-		if ( defined $t && $t eq 'application/problem+json' ) {
-			my ($data, $err) = $error_validator->process(decode_json($r->{'content'}));
-			if ( defined $err ) {
-				die "Authority returned an error but the error is bogus!\n", @$err;
-			}
-			die 'ACME host returned error: ', $data->{'detail'}, ' (', $data->{'type'}, ")\n";
-		}
-
-		die 'ACME host returned HTTP error: ', $r->{'status'}, ' ', $r->{'reason'}, "\n";
-	}
-
-	1;
 }
 
 sub _cert_split_chain {
