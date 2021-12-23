@@ -2,6 +2,11 @@ acne (8-1) unstable; urgency=medium
 
   * Support OpenSSL 3.0
 
+  * Bump debhelper compat to 10
+    11 is discouraged and 12 a bit too new for backports.
+
+  * Bump Standards-Version to 4.6.0
+
  -- Andre Tomt <andre@tomt.net>  Thu, 23 Dec 2021 22:53:04 +0000
 
 acne (7-1) unstable; urgency=medium

@@ -2,8 +2,8 @@ Source: acne
 Section: utils
 Priority: optional
 Maintainer: Andre Tomt <andre@tomt.net>
-Build-Depends: debhelper (>= 9), perl, libmodule-build-perl
-Standards-Version: 3.9.7
+Build-Depends: debhelper (>= 10~), perl, libmodule-build-perl
+Standards-Version: 4.6.0
 
 Package: acne
 Architecture: all
