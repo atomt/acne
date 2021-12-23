@@ -78,6 +78,17 @@ my $key_v11_re = qr/^
 	coefficient:\n\s+(?<qi>[a-f0-9\:\s]+?)$
 /x;
 
+my $key_v30_re = qr/^
+	Private-Key:\ \((?<bits>[0-9]+)\ bit,\ \d\ primes\)\n
+	modulus:\n\s+(?<n>[a-f0-9\:\s]+?)\n
+	publicExponent:\ [0-9]+\ \(0x(?<e>[a-f0-9]+)\)\n
+	privateExponent:\n\s+(?<d>[a-f0-9\:\s]+?)\n
+	prime1:\n\s+(?<p>[a-f0-9\:\s]+?)\n
+	prime2:\n\s+(?<q>[a-f0-9\:\s]+?)\n
+	exponent1:\n\s+(?<dp>[a-f0-9\:\s]+?)\n
+	exponent2:\n\s+(?<dq>[a-f0-9\:\s]+?)\n
+	coefficient:\n\s+(?<qi>[a-f0-9\:\s]+?)$
+/x;
 
 sub _parseKeyTryMultiple {
 	my ($data, @re) = @_;
@@ -104,7 +115,7 @@ sub _parseKey {
 	my $exitval = $? >> 8;
 	die "openssl rsa exit $exitval" if $exitval != 0;
 
-	my @parsed = _parseKeyTryMultiple($output, $key_v11_re, $key_v10_re);
+	my @parsed = _parseKeyTryMultiple($output, $key_v30_re, $key_v11_re, $key_v10_re);
 
 	my $bits = shift @parsed;
 	# Ok a little clunky (instead of counting + for loop iteration)
