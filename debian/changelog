@@ -1,3 +1,9 @@
+acne (8-1) unstable; urgency=medium
+
+  * Support OpenSSL 3.0
+
+ -- Andre Tomt <andre@tomt.net>  Thu, 23 Dec 2021 22:53:04 +0000
+
 acne (7-1) unstable; urgency=medium
 
   * Fix issue when creating the initial db
