@@ -44,9 +44,10 @@ sub new_private_key {
 	} => $class;
 }
 
+# EC-Parameters: (256 bit)
 # ASN1 OID: secp384r1
 # NIST CURVE: P-384
-my $key_re = qr/^
+my $key_re = qr/
 	ASN1\ OID:\ (?<oid>\w+)
 /x;
 
