@@ -1,3 +1,9 @@
+acne (9-1) unstable; urgency=medium
+
+  * Fix ECDSA support with recent openssl.
+
+ -- Andre Tomt <andre@tomt.net>  Sun, 03 Apr 2022 01:00:38 +0200
+
 acne (8-1) unstable; urgency=medium
 
   * Support OpenSSL 3.0
